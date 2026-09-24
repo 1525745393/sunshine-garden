@@ -26,13 +26,13 @@
 
 ## 快速开始
 
-> 开发环境需安装 Flutter 3.x SDK（本仓库代码已在 Dart 3 语法下编写，未包含原生工程目录）。
+> 开发环境需安装 Flutter 3.x SDK。仓库已包含 **android/ 与 ios/ 原生工程骨架**（Gradle 配置、Xcode 工程、启动图标 XML 等均为文本文件，可版本管理）；个别二进制生成物（Gradle wrapper jar、iOS AppIcon PNG）由 `flutter create` 补全，不会覆盖已有配置。
 
 ```bash
 # 1. 进入工程
 cd sunshine-garden
 
-# 2. 生成原生工程骨架（android/、ios/，不会覆盖已有 lib/）
+# 2. 补全原生生成物（gradle wrapper jar、iOS 图标占位等；不会覆盖已有 android/ ios/ 配置与 lib/）
 flutter create --org com.sunshine --project-name sunshine_garden .
 
 # 3. 安装依赖
@@ -41,6 +41,11 @@ flutter pub get
 # 4. 运行
 flutter run
 ```
+
+> 说明：
+> - Android 启动图标为**自适应矢量图标**（`mipmap-anydpi-v26` + VectorDrawable，纯 XML），要求 `minSdk >= 26`（Android 8.0+，已写入 `app/build.gradle`）。
+> - iOS 应用显示名「阳光花园・学习乐园」已写入 `Info.plist`（`CFBundleDisplayName`）；AppIcon 暂为空集，`flutter create` 会生成 Flutter 默认图标，正式发布前需替换为品牌图标（PRD 品牌视觉：#B791FA 底 + 白色阳光）。
+> - 本机无 Flutter SDK 的 CI 环境无法直接构建；请在有 Flutter SDK 的机器执行上述步骤。
 
 ## 目录结构
 

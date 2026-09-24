@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌色：页面浅蓝背景 -->
+    <color name="launch_background_color">#EEF4FF</color>
+    <!-- 启动图标背景（品牌紫） -->
+    <color name="ic_launcher_background">#B791FA</color>
+</resources>
