@@ -181,7 +181,53 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
 
               // 年级选择
-              if (_stage != null) ...[...],
+              if (_stage != null) ...[
+                const SizedBox(height: 24),
+                const Text(
+                  '选择年级',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMain,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: _grades[_stage]!.map((g) {
+                    final selected = _grade == g;
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => setState(() => _grade = g),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.primary
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.locked,
+                          ),
+                        ),
+                        child: Text(
+                          g,
+                          style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textMain,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
 
               // 昵称
               const SizedBox(height: 24),
