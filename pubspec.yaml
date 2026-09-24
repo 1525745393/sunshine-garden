@@ -1,0 +1,34 @@
+name: sunshine_garden
+description: 阳光花园・学习乐园 - K-12 儿童游戏化学习激励应用（Flutter 3）
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # 状态管理
+  provider: ^6.1.1
+
+  # 本地持久化：轻量配置 + 结构化数据
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.2
+  path: ^1.8.3
+  path_provider: ^2.1.1
+
+  # 可选：音效（家长中心可关闭）
+  # just_audio: ^0.9.36
+
+  # 图标（Material Icons 已随 Flutter 自带）
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
