@@ -195,7 +195,17 @@ class _DayGroup extends StatelessWidget {
                                   ),
                               ],
                             ),
-                            if (r.detail.isNotEmpty) ...[...],
+                            if (r.detail.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                r.detail,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 4),
                             Text(
                               '${r.createdAt.hour.toString().padLeft(2, '0')}:'
