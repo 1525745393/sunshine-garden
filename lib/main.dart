@@ -11,7 +11,9 @@ import 'pages/quiz/level_select_page.dart';
 import 'pages/record/record_page.dart';
 import 'pages/reward/reward_page.dart';
 import 'pages/task/task_page.dart';
+import 'providers/garden_provider.dart';
 import 'providers/quiz_provider.dart';
+import 'providers/reward_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/user_provider.dart';
 import 'theme/app_theme.dart';
@@ -34,6 +36,8 @@ class SunshineGardenApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: UserProvider.instance),
         ChangeNotifierProvider.value(value: TaskProvider.instance),
         ChangeNotifierProvider.value(value: QuizProvider.instance),
+        ChangeNotifierProvider.value(value: GardenProvider.instance),
+        ChangeNotifierProvider.value(value: RewardProvider.instance),
       ],
       child: Consumer<UserProvider>(
         builder: (context, user, _) {

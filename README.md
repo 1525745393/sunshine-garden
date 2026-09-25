@@ -2,17 +2,19 @@
 
 面向 K-12 儿童（幼儿园至初中）的游戏化学习激励移动应用。孩子完成学习任务、玩"知识闯关"获得阳光积分，用积分兑换奖励、解锁勋章、装饰花园。
 
-> 当前仓库为 **MVP v1.0**：聚焦小学低年级（1-2 年级）学段，实现"学习 → 拿积分"核心闭环。详见 [PRD](https://my.feishu.cn/docx/O5Radjz71o8MWtxZdOUcVdfQnTe)。
+> 当前仓库为 **MVP v1.1**：在 v1.0 学习闭环基础上，落地"阳光花园 / 阳光商城 / 我的奖励"三大激励页面。详见 [PRD](https://my.feishu.cn/docx/O5Radjz71o8MWtxZdOUcVdfQnTe)。
 
-## 功能范围（v1.0）
+## 功能范围（v1.1）
 
 - 首次启动：隐私告知弹窗（家长同意）→ 学段/年级选择
 - 学习总览（首页）：Hero 卡 + 积分进度环 + 今日任务摘要 + 闯关入口
 - 今日任务：任务勾选、积分发放、完成进度
 - 知识闯关：关卡选择 → 逐题作答 → 即时反馈与解析 → 星级结算 → 错题入库
-- 学习记录：按日期的闯关/任务/积分时间线
+- 阳光花园：地块网格，已解锁展示植物，锁定地块消费积分解锁（v1.1）
+- 阳光商城：奖励商品三档（贴纸/花园装饰/家长兑现），积分足够扣分兑换、不足禁用（v1.1）
+- 我的奖励：勋章墙（按闯关进度自动解锁）+ 兑换记录列表（v1.1）
+- 学习记录：按日期的闯关/任务/兑换/积分时间线
 - 家长中心：算术验证进入、修改学段/年级/每日时长、一键清除本地数据
-- 阳光花园 / 阳光商城 / 我的奖励：UI 占位壳（v1.1 实现）
 
 ## 技术栈
 
@@ -53,12 +55,12 @@ flutter run
 lib/
 ├── main.dart                 # 应用入口（Provider 装配 + 路由）
 ├── theme/app_theme.dart      # 品牌主题（色值统一管理）
-├── models/                   # 数据模型
-├── providers/                # Provider 状态管理（用户/任务/闯关）
-├── db/database_helper.dart   # sqflite 数据库帮助类
-├── mock/                     # Mock 数据（题库/任务/奖励/勋章）
+├── models/                   # 数据模型（含 GardenPlot / Reward / Badge）
+├── providers/                # Provider 状态管理（用户/任务/闯关/花园/商城）
+├── db/database_helper.dart   # sqflite 数据库帮助类（含 garden_plots 表）
+├── mock/                     # Mock 数据（题库/任务/奖励/勋章/花园）
 ├── pages/                    # 页面层（按功能分包）
-└── widgets/                  # 通用组件
+└── widgets/                  # 通用组件（TaskItem / PlotTile / RewardCard / BadgeItem 等）
 ```
 
 ## 数据与合规

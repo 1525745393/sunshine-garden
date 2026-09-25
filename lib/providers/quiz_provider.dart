@@ -10,6 +10,7 @@ import '../models/mistake.dart';
 import '../models/question.dart';
 import '../models/reward.dart';
 import '../models/study_record.dart';
+import '../models/user_profile.dart';
 import 'user_provider.dart';
 
 /// 单题作答记录
@@ -297,6 +298,8 @@ class QuizProvider extends ChangeNotifier {
       }
     }
 
+    await unlockIf('b_pinyin',
+        (levelById['k_l1']?.starCount ?? 0) >= 1);
     await unlockIf('b_words',
         (levelById['p_l1']?.starCount ?? 0) >= 2);
     await unlockIf('b_poet',
@@ -307,7 +310,8 @@ class QuizProvider extends ChangeNotifier {
     await unlockIf('b_persist', (user.continuousDays) >= 7);
     await unlockIf(
         'b_middle',
-        _levels.isNotEmpty &&
+        user.stage == StudyStage.primary &&
+            _levels.isNotEmpty &&
             _levels.every((l) => l.starCount >= 3));
     notifyListeners();
   }

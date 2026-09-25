@@ -1,6 +1,7 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import '../models/garden_plot.dart';
 import '../models/level.dart';
 import '../models/mistake.dart';
 import '../models/reward.dart';
@@ -14,7 +15,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbName = 'sunshine_garden.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
   Database? _db;
 
   Future<Database> get database async {
@@ -124,6 +125,32 @@ class DatabaseHelper {
             unlocked INTEGER DEFAULT 0
           )
         ''');
+        // 花园地块解锁状态（v1.1）
+        await db.execute('''
+          CREATE TABLE garden_plots (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            icon TEXT,
+            description TEXT,
+            price INTEGER DEFAULT 0,
+            unlocked INTEGER DEFAULT 0
+          )
+        ''');
+      },
+      // 老版本升级：v1.0 已有库 → 补齐 v1.1 新增表
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS garden_plots (
+              id TEXT PRIMARY KEY,
+              name TEXT,
+              icon TEXT,
+              description TEXT,
+              price INTEGER DEFAULT 0,
+              unlocked INTEGER DEFAULT 0
+            )
+          ''');
+        }
       },
     );
   }
@@ -226,6 +253,32 @@ class DatabaseHelper {
     return rows.map(StudyRecord.fromMap).toList();
   }
 
+  // ---------- 花园地块 ----------
+  Future<void> upsertGardenPlot(GardenPlot plot) async {
+    final db = await database;
+    await db.insert(
+      'garden_plots',
+      plot.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<GardenPlot>> getGardenPlots() async {
+    final db = await database;
+    final rows = await db.query('garden_plots', orderBy: 'rowid');
+    return rows.map(GardenPlot.fromMap).toList();
+  }
+
+  Future<void> setGardenPlotUnlocked(String id, {required bool unlocked}) async {
+    final db = await database;
+    await db.update(
+      'garden_plots',
+      {'unlocked': unlocked ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // ---------- 商城 ----------
   Future<void> upsertReward(RewardItem item) async {
     final db = await database;
@@ -307,6 +360,7 @@ class DatabaseHelper {
       'rewards',
       'redemptions',
       'badges',
+      'garden_plots',
     ]) {
       await db.delete(table);
     }
