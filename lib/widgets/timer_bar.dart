@@ -70,6 +70,43 @@ class TimerBar extends StatelessWidget {
               '${timeUp ? ' · 新关卡已锁定，错题复习不受影响' : ''}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
+            // 番茄钟状态（v1.4）
+            if (user.pomodoroEnabled && !timeUp) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: user.isPomodoroBreak
+                      ? AppColors.warning.withValues(alpha: 0.18)
+                      : Colors.white10,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      user.isPomodoroBreak ? '☕ 休息时间' : '🍅 学习专注',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${user.isPomodoroBreak ? '还剩' : '本轮还剩'} '
+                      '${_fmt(user.pomodoroRemainingSeconds)}',
+                      style: TextStyle(
+                        color: user.isPomodoroBreak
+                            ? AppColors.warning
+                            : Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

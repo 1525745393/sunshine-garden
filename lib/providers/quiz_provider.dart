@@ -310,7 +310,10 @@ class QuizProvider extends ChangeNotifier {
     await unlockIf(
         'b_reader', (levelById['p_l4']?.starCount ?? 0) >= 1);
     await unlockIf('b_champion', quizCount >= 10);
-    await unlockIf('b_persist', (user.continuousDays) >= 7);
+    // 坚持之星：连续 7 天且每天玩满 10 分钟
+    await unlockIf('b_persist',
+        user.continuousDays >= 7 &&
+            UserProvider.instance.todayPlayedEnough);
     await unlockIf(
         'b_middle',
         user.stage == StudyStage.primary &&

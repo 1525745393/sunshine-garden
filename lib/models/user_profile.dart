@@ -33,6 +33,10 @@ class UserProfile {
   bool darkMode;
   int dailyTargetScore; // 每日目标积分（v1.3，0=未设置）
   bool filterCurrentStage; // 内容过滤：仅当前学段关卡（v1.3）
+  int dailyScoreLimit; // 每日积分上限（v1.4，0=不限，防刷简单题）
+  bool pomodoroEnabled; // 番茄钟开关（v1.4）
+  int focusMinutes; // 单次学习时长（分钟，默认 15）
+  int breakMinutes; // 休息时长（分钟，默认 3）
 
   UserProfile({
     required this.id,
@@ -49,6 +53,10 @@ class UserProfile {
     this.darkMode = false,
     this.dailyTargetScore = 0,
     this.filterCurrentStage = false,
+    this.dailyScoreLimit = 0,
+    this.pomodoroEnabled = true,
+    this.focusMinutes = 15,
+    this.breakMinutes = 3,
   }) : dailyMinutes = dailyMinutes ?? stage.defaultDailyMinutes;
 
   Map<String, dynamic> toMap() => {
@@ -66,6 +74,10 @@ class UserProfile {
         'dark_mode': darkMode ? 1 : 0,
         'daily_target_score': dailyTargetScore,
         'filter_current_stage': filterCurrentStage ? 1 : 0,
+        'daily_score_limit': dailyScoreLimit,
+        'pomodoro_enabled': pomodoroEnabled ? 1 : 0,
+        'focus_minutes': focusMinutes,
+        'break_minutes': breakMinutes,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
@@ -88,5 +100,10 @@ class UserProfile {
         darkMode: (map['dark_mode'] as num?)?.toInt() == 1,
         dailyTargetScore: (map['daily_target_score'] as num?)?.toInt() ?? 0,
         filterCurrentStage: (map['filter_current_stage'] as num?)?.toInt() == 1,
+        dailyScoreLimit: (map['daily_score_limit'] as num?)?.toInt() ?? 0,
+        pomodoroEnabled:
+            (map['pomodoro_enabled'] as num?)?.toInt() != 0,
+        focusMinutes: (map['focus_minutes'] as num?)?.toInt() ?? 15,
+        breakMinutes: (map['break_minutes'] as num?)?.toInt() ?? 3,
       );
 }

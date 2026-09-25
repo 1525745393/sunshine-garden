@@ -267,12 +267,32 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                 ListTile(
                   leading: const Icon(Icons.hourglass_top,
                       color: AppColors.primary),
-                  title: const Text('番茄钟（15 分钟学习 + 3 分钟休息）'),
-                  subtitle: const Text('v1.1 版本上线'),
-                  trailing: const Text(
-                    '即将上线',
-                    style: TextStyle(color: AppColors.locked, fontSize: 12),
+                  title: Text(
+                      '番茄钟（${profile.focusMinutes} 分钟学习 + ${profile.breakMinutes} 分钟休息）'),
+                  subtitle: Text(profile.pomodoroEnabled
+                      ? '到点提醒休息，复习错题不受影响'
+                      : '已关闭'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showPomodoroDialog(context, profile),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.savings_outlined,
+                      color: AppColors.primary),
+                  title: const Text('每日积分上限'),
+                  subtitle: Text(profile.dailyScoreLimit == 0
+                      ? '未限制（可设置上限防刷题）'
+                      : '今日最多获得 ${profile.dailyScoreLimit} 分'),
+                  trailing: Text(
+                    profile.dailyScoreLimit == 0
+                        ? '不限'
+                        : '${profile.dailyScoreLimit} 分',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  onTap: () => _showScoreLimitDialog(context, profile),
                 ),
               ],
             ),
@@ -574,6 +594,164 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
               onPressed: () async {
                 await UserProvider.instance
                     .updateSettings(dailyTargetScore: target);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 修改每日积分上限（0 表示不限制，防刷简单题）
+  Future<void> _showScoreLimitDialog(
+      BuildContext context, UserProfile profile) async {
+    var limit = profile.dailyScoreLimit;
+    const presets = [0, 50, 100, 150, 200];
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('每日积分上限'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                limit == 0 ? '不限' : '$limit 分',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: presets.map((p) {
+                  return ChoiceChip(
+                    label: Text(p == 0 ? '不限' : '$p'),
+                    selected: limit == p,
+                    onSelected: (v) => setDialogState(() => limit = p),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              Slider(
+                value: limit.toDouble().clamp(0, 300),
+                min: 0,
+                max: 300,
+                divisions: 30,
+                label: '$limit',
+                onChanged: (v) => setDialogState(() => limit = v.round()),
+              ),
+              const Text(
+                '防止孩子刷简单题；达到上限后当天不再获得积分（兑换扣分不受影响）',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                await UserProvider.instance
+                    .updateSettings(dailyScoreLimit: limit);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 番茄钟配置：开关 + 学习 / 休息时长
+  Future<void> _showPomodoroDialog(
+      BuildContext context, UserProfile profile) async {
+    var enabled = profile.pomodoroEnabled;
+    var focus = profile.focusMinutes;
+    var rest = profile.breakMinutes;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('番茄钟'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                value: enabled,
+                onChanged: (v) => setDialogState(() => enabled = v),
+                secondary: const Icon(Icons.timer_outlined,
+                    color: AppColors.primary),
+                title: const Text('开启番茄钟'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '学习 $focus 分钟',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              Slider(
+                value: focus.toDouble(),
+                min: 5,
+                max: 30,
+                divisions: 5,
+                label: '$focus',
+                onChanged: (v) =>
+                    setDialogState(() => focus = v.round()),
+              ),
+              Text(
+                '休息 $rest 分钟',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              Slider(
+                value: rest.toDouble(),
+                min: 1,
+                max: 10,
+                divisions: 9,
+                label: '$rest',
+                onChanged: (v) => setDialogState(() => rest = v.round()),
+              ),
+              const Text(
+                '学习到点提醒休息；休息/超时阶段错题复习不受影响',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                await UserProvider.instance.updateSettings(
+                  pomodoroEnabled: enabled,
+                  focusMinutes: focus,
+                  breakMinutes: rest,
+                );
                 if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('保存'),

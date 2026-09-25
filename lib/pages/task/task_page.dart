@@ -138,13 +138,16 @@ class _TaskPageState extends State<TaskPage> {
     );
   }
 
-  /// 今日成就卡：家长每日目标进度（v1.3）
+  /// 今日成就卡：家长每日目标进度 + 积分上限（v1.3 / v1.4）
   Widget _buildDailyTargetCard() {
     final user = UserProvider.instance;
     final target = user.profile?.dailyTargetScore ?? 0;
-    if (target <= 0) return const SizedBox.shrink();
-    final hit = _todayEarned >= target;
-    final ratio = (_todayEarned / target).clamp(0.0, 1.0);
+    final limit = user.profile?.dailyScoreLimit ?? 0;
+    if (target <= 0 && limit <= 0) return const SizedBox.shrink();
+    final hasTarget = target > 0;
+    final hit = hasTarget && _todayEarned >= target;
+    final ratio =
+        (hasTarget ? (_todayEarned / target) : 0.0).clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -159,9 +162,9 @@ class _TaskPageState extends State<TaskPage> {
               Text(hit ? '🌟' : '🏁',
                   style: const TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
-              const Text(
-                '今日成就',
-                style: TextStyle(
+              Text(
+                hasTarget ? '今日成就' : '今日积分',
+                style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textMain,
@@ -169,7 +172,9 @@ class _TaskPageState extends State<TaskPage> {
               ),
               const Spacer(),
               Text(
-                hit ? '已达成！' : '$_todayEarned / $target 分',
+                hasTarget
+                    ? (hit ? '已达成！' : '$_todayEarned / $target 分')
+                    : '已获 $_todayEarned 分',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -178,25 +183,44 @@ class _TaskPageState extends State<TaskPage> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.6),
-              valueColor: AlwaysStoppedAnimation(
-                  hit ? AppColors.success : AppColors.primary),
+          if (hasTarget) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: ratio,
+                minHeight: 8,
+                backgroundColor: Colors.white.withOpacity(0.6),
+                valueColor: AlwaysStoppedAnimation(
+                    hit ? AppColors.success : AppColors.primary),
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 6),
           Text(
-            hit ? '今天的成就目标完成啦，去家长中心看看新奖励吧！' : '完成任务与闯关，攒够 $target 分即可获得今日成就卡片',
+            hit
+                ? '今天的成就目标完成啦，去家长中心看看新奖励吧！'
+                : (hasTarget
+                    ? '完成任务与闯关，攒够 $target 分即可获得今日成就卡片'
+                    : '今日已获得 $_todayEarned 分，继续加油！'),
             style: const TextStyle(
               fontSize: 11,
               color: AppColors.textSecondary,
             ),
           ),
+          if (limit > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              limit > 0 && _todayEarned >= limit
+                  ? '📊 已达今日积分上限（$limit 分），明天再来赚积分吧'
+                  : '📊 今日积分上限：$limit 分（已获 $_todayEarned 分）',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.warning,
+              ),
+            ),
+          ],
         ],
       ),
     );

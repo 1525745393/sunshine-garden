@@ -36,13 +36,16 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _foregroundStart = DateTime.now();
-    // 每秒刷新一次 UI（时长条）
+    // 每秒刷新一次 UI（时长条 / 番茄钟）+ 提示检测
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
+      _checkPomodoroAndReward();
     });
     // 每日时长提醒（每天只弹一次）
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final user = UserProvider.instance;
+      // 进入页面时先消费一次累积提示（番茄 / 打卡奖励）
+      _checkPomodoroAndReward();
       if (await user.consumeTimeUpNotice()) {
         if (!mounted) return;
         showDialog<void>(
@@ -59,6 +62,35 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                 child: const Text('好的'),
               ),
             ],
+          ),
+        );
+      }
+    });
+  }
+
+  /// 番茄钟休息提示 + 连续打卡奖励提示（异步消费，防止阻塞 ticker）
+  void _checkPomodoroAndReward() {
+    if (!mounted) return;
+    Future.microtask(() async {
+      final user = UserProvider.instance;
+      if (await user.consumePomodoroBreakNotice()) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '🍅 番茄钟到点啦，休息 ${user.breakMinutes} 分钟吧！\n错题复习不受影响哦～'),
+            backgroundColor: AppColors.warning,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      final msg = user.consumeRewardMessage();
+      if (msg != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

@@ -15,7 +15,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbName = 'sunshine_garden.db';
-  static const _dbVersion = 3;
+  static const _dbVersion = 4;
   Database? _db;
 
   Future<Database> get database async {
@@ -45,7 +45,11 @@ class DatabaseHelper {
             animation_enabled INTEGER DEFAULT 1,
             dark_mode INTEGER DEFAULT 0,
             daily_target_score INTEGER DEFAULT 0,
-            filter_current_stage INTEGER DEFAULT 0
+            filter_current_stage INTEGER DEFAULT 0,
+            daily_score_limit INTEGER DEFAULT 0,
+            pomodoro_enabled INTEGER DEFAULT 1,
+            focus_minutes INTEGER DEFAULT 15,
+            break_minutes INTEGER DEFAULT 3
           )
         ''');
         // 关卡进度
@@ -167,6 +171,17 @@ class DatabaseHelper {
               'ALTER TABLE users ADD COLUMN daily_target_score INTEGER DEFAULT 0');
           await db.execute(
               'ALTER TABLE users ADD COLUMN filter_current_stage INTEGER DEFAULT 0');
+        }
+        if (oldVersion < 4) {
+          // v1.4：每日积分上限 + 番茄钟配置
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN daily_score_limit INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN pomodoro_enabled INTEGER DEFAULT 1');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN focus_minutes INTEGER DEFAULT 15');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN break_minutes INTEGER DEFAULT 3');
         }
       },
     );
