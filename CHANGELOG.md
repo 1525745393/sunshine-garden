@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/1525745393/sunshine-garden/compare/v1.3.0...v1.4.0) (2026-09-25)
+
+
+### Features
+
+* 家长中心新增检查更新（GitHub Releases 比对 + 下载），升级 AGP 8.9.1/Gradle 8.11.1 ([e203266](https://github.com/1525745393/sunshine-garden/commit/e2032669314a990853000104fe7f67cb2f57bdc5))
+
 # [1.3.0](https://github.com/1525745393/sunshine-garden/compare/v1.2.0...v1.3.0) (2026-09-25)
 
 
