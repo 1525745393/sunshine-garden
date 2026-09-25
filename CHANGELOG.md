@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/1525745393/sunshine-garden/compare/v1.1.0...v1.2.0) (2026-09-25)
+
+
+### Features
+
+* v1.4 番茄钟/每日积分上限/连续打卡奖励（防刷题与劳逸结合） ([71d8044](https://github.com/1525745393/sunshine-garden/commit/71d8044f213060fbf114bf9b8c78725b70fbd245))
+
 # [1.1.0](https://github.com/1525745393/sunshine-garden/compare/v1.0.3...v1.1.0) (2026-09-25)
 
 
