@@ -1,0 +1,9 @@
+# 1.0.0 (2026-09-25)
+
+
+### Features
+
+* add Android & iOS native project skeletons ([f549889](https://github.com/1525745393/sunshine-garden/commit/f54988938acd21e951f529687a011e5fd774bce1)), closes [#EEF4FF](https://github.com/1525745393/sunshine-garden/issues/EEF4FF)
+* v1.3 家长中心增强完整实现（奖励审批/自定义奖励/每日目标成就/内容过滤） ([55af549](https://github.com/1525745393/sunshine-garden/commit/55af549783f3a605a12c327536a0b14899f482ea))
+* 阳光花园・学习乐园 MVP v1.0 初始代码 ([7e841a0](https://github.com/1525745393/sunshine-garden/commit/7e841a09df38e887901e6a52c1a0127742504953))
+* 阳光花园/阳光商城/我的奖励 v1.1（积分消费闭环） ([03cb1f0](https://github.com/1525745393/sunshine-garden/commit/03cb1f0411fddb8d5b061ebae5f5b93b91dc644e))
