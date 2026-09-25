@@ -79,6 +79,22 @@ class UserProvider extends ChangeNotifier {
   /// 每日时长上限（秒）
   int get dailyLimitSeconds => (_profile?.dailyMinutes ?? 20) * 60;
 
+  /// 是否处于家长设定的允许学习时间段之外（v1.4）
+  bool get isOutsideAllowedWindow {
+    final p = _profile;
+    if (p == null) return false;
+    final start = p.allowedStartHour;
+    final end = p.allowedEndHour;
+    // 默认全天（0-24）不限制
+    if (start == 0 && end == 24) return false;
+    final h = DateTime.now().hour;
+    // 支持跨午夜窗口（如 20:00-08:00）
+    final inside = start <= end
+        ? (h >= start && h < end)
+        : (h >= start || h < end);
+    return !inside;
+  }
+
   // ---------- 番茄钟（v1.4） ----------
   bool get pomodoroEnabled => _profile?.pomodoroEnabled ?? true;
   int get focusMinutes => _profile?.focusMinutes ?? 15;
@@ -204,6 +220,8 @@ class UserProvider extends ChangeNotifier {
     bool? pomodoroEnabled,
     int? focusMinutes,
     int? breakMinutes,
+    int? allowedStartHour,
+    int? allowedEndHour,
   }) async {
     final p = _profile;
     if (p == null) return;
@@ -219,6 +237,8 @@ class UserProvider extends ChangeNotifier {
     if (pomodoroEnabled != null) p.pomodoroEnabled = pomodoroEnabled;
     if (focusMinutes != null) p.focusMinutes = focusMinutes;
     if (breakMinutes != null) p.breakMinutes = breakMinutes;
+    if (allowedStartHour != null) p.allowedStartHour = allowedStartHour;
+    if (allowedEndHour != null) p.allowedEndHour = allowedEndHour;
     await _persistProfile();
   }
 

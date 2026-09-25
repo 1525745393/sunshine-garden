@@ -49,7 +49,9 @@ class DatabaseHelper {
             daily_score_limit INTEGER DEFAULT 0,
             pomodoro_enabled INTEGER DEFAULT 1,
             focus_minutes INTEGER DEFAULT 15,
-            break_minutes INTEGER DEFAULT 3
+            break_minutes INTEGER DEFAULT 3,
+            allowed_start_hour INTEGER DEFAULT 0,
+            allowed_end_hour INTEGER DEFAULT 24
           )
         ''');
         // 关卡进度
@@ -173,7 +175,7 @@ class DatabaseHelper {
               'ALTER TABLE users ADD COLUMN filter_current_stage INTEGER DEFAULT 0');
         }
         if (oldVersion < 4) {
-          // v1.4：每日积分上限 + 番茄钟配置
+          // v1.4：每日积分上限 + 番茄钟配置 + 允许时间段
           await db.execute(
               'ALTER TABLE users ADD COLUMN daily_score_limit INTEGER DEFAULT 0');
           await db.execute(
@@ -182,6 +184,10 @@ class DatabaseHelper {
               'ALTER TABLE users ADD COLUMN focus_minutes INTEGER DEFAULT 15');
           await db.execute(
               'ALTER TABLE users ADD COLUMN break_minutes INTEGER DEFAULT 3');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN allowed_start_hour INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN allowed_end_hour INTEGER DEFAULT 24');
         }
       },
     );

@@ -226,14 +226,24 @@ class QuizProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 从题库反查题目（错题重做用）
+  /// 从题库反查题目（错题重做用，v1.4 遍历全部学段）
   Question? findQuestion(String id) {
-    for (final level in levelsForStage('primary')) {
-      for (final q in level.questions) {
-        if (q.id == id) return q;
+    for (final stage in StudyStage.values) {
+      for (final level in levelsForStage(stage.name)) {
+        for (final q in level.questions) {
+          if (q.id == id) return q;
+        }
       }
     }
     return null;
+  }
+
+  /// 错题重做错误：按遗忘曲线顺延复习节点（+1 天），留在错题本
+  Future<void> postponeMistake(Mistake mistake) async {
+    mistake.nextReviewAt =
+        DateTime.now().add(const Duration(days: 1));
+    await DatabaseHelper.instance.upsertMistake(mistake);
+    notifyListeners();
   }
 
   /// 错题重做正确：+2 积分、移出错题本、写学习记录

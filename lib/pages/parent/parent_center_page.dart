@@ -265,6 +265,20 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.schedule,
+                      color: AppColors.primary),
+                  title: const Text('允许学习时间段'),
+                  subtitle: Text(
+                    profile.allowedStartHour == 0 &&
+                            profile.allowedEndHour == 24
+                        ? '全天开放'
+                        : '每天 ${_fmtHour(profile.allowedStartHour)} - ${_fmtHour(profile.allowedEndHour)}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showAllowedWindowDialog(context, profile),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.hourglass_top,
                       color: AppColors.primary),
                   title: Text(
@@ -761,6 +775,86 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
       ),
     );
   }
+
+  /// 允许学习时间段配置：开始/结束小时（0-24，跨午夜支持）
+  Future<void> _showAllowedWindowDialog(
+      BuildContext context, UserProfile profile) async {
+    var start = profile.allowedStartHour;
+    var end = profile.allowedEndHour;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('允许学习时间段'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                start == 0 && end == 24
+                    ? '全天开放'
+                    : '${_fmtHour(start)} - ${_fmtHour(end)}',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('开始时间',
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+              Slider(
+                value: start.toDouble(),
+                min: 0,
+                max: 23,
+                divisions: 23,
+                label: _fmtHour(start),
+                onChanged: (v) => setDialogState(() => start = v.round()),
+              ),
+              const Text('结束时间',
+                  style: TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary)),
+              Slider(
+                value: end.toDouble(),
+                min: 1,
+                max: 24,
+                divisions: 23,
+                label: _fmtHour(end),
+                onChanged: (v) => setDialogState(() => end = v.round()),
+              ),
+              const Text(
+                '超出时间段时新关卡锁定，错题复习不受影响；支持跨午夜（如 20:00-08:00）',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                await UserProvider.instance.updateSettings(
+                  allowedStartHour: start,
+                  allowedEndHour: end,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 小时格式化：0 → "00:00"、24 → "24:00"
+  static String _fmtHour(int h) =>
+      '${h.toString().padLeft(2, '0')}:00';
 
   /// 家长自定义奖励表单（v1.3）
   Future<void> _showCustomRewardDialog(BuildContext context) async {

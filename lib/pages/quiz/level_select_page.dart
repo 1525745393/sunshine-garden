@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/mistake.dart';
+import '../../models/question.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
@@ -22,6 +23,8 @@ class _LevelSelectPageState extends State<LevelSelectPage> {
   Widget build(BuildContext context) {
     final quiz = context.watch<QuizProvider>();
     final user = context.watch<UserProvider>();
+    // 超时 或 超出允许时间段 → 锁定新关卡（错题复习不受限）
+    final blocked = user.isTimeUp || user.isOutsideAllowedWindow;
     final timeUp = user.isTimeUp;
 
     // v1.3 内容过滤：家长开启后仅显示当前学段关卡
@@ -40,21 +43,23 @@ class _LevelSelectPageState extends State<LevelSelectPage> {
           children: [
             const TimerBar(),
             const SizedBox(height: 14),
-            if (timeUp)
+            if (blocked)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.rewardBackground,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.lock_clock, color: AppColors.warning),
-                    SizedBox(width: 10),
+                    const Icon(Icons.lock_clock, color: AppColors.warning),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '今天的学习时间到啦，明天再来吧！\n错题复习和查看记录仍然开放哦～',
-                        style: TextStyle(
+                        user.isOutsideAllowedWindow
+                            ? '现在不是学习时间哦，家长设置了时间段限制！\n错题复习和查看记录仍然开放～'
+                            : '今天的学习时间到啦，明天再来吧！\n错题复习和查看记录仍然开放哦～',
+                        style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.textMain,
                           height: 1.5,
@@ -70,7 +75,7 @@ class _LevelSelectPageState extends State<LevelSelectPage> {
               (level) => LevelCard(
                 level: level,
                 onTap: () {
-                  if (timeUp) {
+                  if (blocked) {
                     _showTimeUpSnack();
                     return;
                   }
@@ -170,7 +175,9 @@ class _MistakePageState extends State<MistakePage> {
   @override
   Widget build(BuildContext context) {
     final quiz = context.watch<QuizProvider>();
-    final list = quiz.mistakes;
+    // 遗忘曲线排序：到期（待复习）优先，其余按复习时间升序
+    final list = List<Mistake>.of(quiz.mistakes)
+      ..sort((a, b) => a.nextReviewAt.compareTo(b.nextReviewAt));
     return Scaffold(
       appBar: AppBar(title: const Text('错题本')),
       body: list.isEmpty
@@ -188,96 +195,235 @@ class _MistakePageState extends State<MistakePage> {
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: list.length,
-              itemBuilder: (context, i) {
-                final m = list[i];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.questionText,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textMain,
-                            height: 1.5,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '正确答案：${m.correctAnswer}',
-                          style: const TextStyle(
-                            color: AppColors.success,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          m.analysis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () => _redo(context, m),
-                            child: const Text('我学会了，重做通过'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              itemBuilder: (context, i) => _buildCard(context, list[i]),
             ),
     );
   }
 
-  void _redo(BuildContext context, Mistake m) async {
+  /// 错题卡片：题目 + 到期状态 + 重做入口
+  Widget _buildCard(BuildContext context, Mistake m) {
     final quiz = QuizProvider.instance;
-    // 简化重做确认：家长/孩子确认已掌握后移出错题本
-    final ok = await showDialog<bool>(
+    final q = quiz.findQuestion(m.id); // 反查原题（含选项）
+    final now = DateTime.now();
+    final dueNow = m.nextReviewAt.isBefore(now);
+    final daysLeft =
+        m.nextReviewAt.difference(now).inDays + 1;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    m.questionText,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textMain,
+                      height: 1.5,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 到期状态徽标（橙色=待复习 / 灰=未到期）
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: dueNow
+                        ? AppColors.warning.withValues(alpha: 0.15)
+                        : Colors.grey.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    dueNow ? '待复习' : '$daysLeft 天后',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: dueNow
+                          ? AppColors.warning
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (q != null && (q.options?.isNotEmpty ?? false))
+              Text(
+                '题型：${q.type.label}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => _redo(context, m),
+                child: Text(dueNow ? '重做' : '提前复习'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 重做入口：选择题走选项作答，其余走填空作答
+  Future<void> _redo(BuildContext context, Mistake m) async {
+    final quiz = QuizProvider.instance;
+    final q = quiz.findQuestion(m.id);
+    if (q != null && (q.options?.isNotEmpty ?? false)) {
+      await _showChoiceRedo(context, m, q);
+    } else {
+      await _showTextRedo(context, m);
+    }
+  }
+
+  /// 选择题重做：显示题目 + 选项（点击选项即作答）
+  Future<void> _showChoiceRedo(
+      BuildContext context, Mistake m, Question q) async {
+    final options = q.options ?? const <String>[];
+    final answer = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('错题重做'),
-        content: Text(
-          '题目：${m.questionText}\n\n正确答案：${m.correctAnswer}\n\n确定已经掌握了吗？通过后 +2 积分并移出错题本。',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              q.question,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textMain,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            for (var i = 0; i < options.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: AppColors.primary,
+                    ),
+                    onPressed: () => Navigator.pop(ctx, options[i]),
+                    child: Text(
+                      '${String.fromCharCode(65 + i)}. ${options[i]}',
+                      textAlign: TextAlign.left,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('再看看'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.success,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('我学会了'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
           ),
         ],
       ),
     );
-    if (ok == true) {
+    if (answer == null || !mounted) return;
+    await _judge(context, m, answer);
+  }
+
+  /// 填空/其他题型重做：输入答案作答
+  Future<void> _showTextRedo(BuildContext context, Mistake m) async {
+    final ctrl = TextEditingController();
+    final answer = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('错题重做'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              m.questionText,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textMain,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '输入你的答案',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('提交'),
+          ),
+        ],
+      ),
+    );
+    if (answer == null || answer.isEmpty || !mounted) return;
+    await _judge(context, m, answer);
+  }
+
+  /// 判定：答对 → +2 积分移出错题本；答错 → 顺延到明天复习
+  Future<void> _judge(
+      BuildContext context, Mistake m, String answer) async {
+    final quiz = QuizProvider.instance;
+    final correct = _norm(m.correctAnswer) == _norm(answer);
+    if (correct) {
       await quiz.resolveMistake(m);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ 重做通过，+2 积分！')),
+        SnackBar(
+          content: const Text('✅ 答对啦！+2 积分，错题移出。'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      await quiz.postponeMistake(m);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '🤔 还差一点点，正确答案：${m.correctAnswer}。明天再来复习这道题'),
+          backgroundColor: AppColors.warning,
+          duration: const Duration(seconds: 3),
+        ),
       );
     }
   }
+
+  /// 答案归一化：去首尾空格、去空格、转小写
+  static String _norm(String s) =>
+      s.trim().toLowerCase().replaceAll(' ', '');
 }

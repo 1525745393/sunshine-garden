@@ -37,6 +37,8 @@ class UserProfile {
   bool pomodoroEnabled; // 番茄钟开关（v1.4）
   int focusMinutes; // 单次学习时长（分钟，默认 15）
   int breakMinutes; // 休息时长（分钟，默认 3）
+  int allowedStartHour; // 允许学习时间段起（v1.4，0-23，默认 0）
+  int allowedEndHour; // 允许学习时间段止（v1.4，0-24，默认 24=全天）
 
   UserProfile({
     required this.id,
@@ -57,6 +59,8 @@ class UserProfile {
     this.pomodoroEnabled = true,
     this.focusMinutes = 15,
     this.breakMinutes = 3,
+    this.allowedStartHour = 0,
+    this.allowedEndHour = 24,
   }) : dailyMinutes = dailyMinutes ?? stage.defaultDailyMinutes;
 
   Map<String, dynamic> toMap() => {
@@ -78,6 +82,8 @@ class UserProfile {
         'pomodoro_enabled': pomodoroEnabled ? 1 : 0,
         'focus_minutes': focusMinutes,
         'break_minutes': breakMinutes,
+        'allowed_start_hour': allowedStartHour,
+        'allowed_end_hour': allowedEndHour,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
@@ -105,5 +111,7 @@ class UserProfile {
             (map['pomodoro_enabled'] as num?)?.toInt() != 0,
         focusMinutes: (map['focus_minutes'] as num?)?.toInt() ?? 15,
         breakMinutes: (map['break_minutes'] as num?)?.toInt() ?? 3,
+        allowedStartHour: (map['allowed_start_hour'] as num?)?.toInt() ?? 0,
+        allowedEndHour: (map['allowed_end_hour'] as num?)?.toInt() ?? 24,
       );
 }
