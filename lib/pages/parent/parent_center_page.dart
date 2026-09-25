@@ -1,13 +1,16 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../db/database_helper.dart';
 import '../../models/user_profile.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/reward_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/update_checker.dart';
 import '../../theme/app_theme.dart';
 
 /// 家长中心：算术验证 → 报告 / 档案 / 审批 / 时长 / 偏好 / 一键清除
@@ -354,6 +357,24 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                       color: AppColors.primary),
                   title: const Text('内容过滤：仅当前学段关卡'),
                   subtitle: const Text('闯关列表只显示本学段内容'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 应用
+          _SectionCard(
+            title: '应用',
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.system_update_alt,
+                      color: AppColors.primary),
+                  title: const Text('检查更新'),
+                  subtitle: const Text('从 GitHub 发布页检查并下载新版本'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _checkUpdate(context),
                 ),
               ],
             ),
@@ -970,6 +991,117 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
         'medium' => '中奖励',
         _ => '大奖励',
       };
+
+  /// 检查更新：查询 GitHub 最新 Release 并对比本地版本
+  Future<void> _checkUpdate(BuildContext context) async {
+    // 加载对话框（检查中）
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('正在检查新版本…')),
+          ],
+        ),
+      ),
+    );
+
+    // 获取本地版本号
+    String local = '未知';
+    try {
+      final info = await PackageInfo.fromPlatform();
+      local = info.version;
+    } catch (_) {}
+    UpdateChecker.currentVersion = local;
+
+    final update = await UpdateChecker.check();
+    if (!context.mounted) return;
+    Navigator.pop(context); // 关闭加载框
+
+    if (update == null) {
+      _showUpdateResult(
+        context,
+        title: '检查失败',
+        content: '无法连接更新服务，请检查网络后重试。',
+        actionLabel: null,
+      );
+      return;
+    }
+    if (!update.hasUpdate) {
+      _showUpdateResult(
+        context,
+        title: '已是最新版本',
+        content: '当前版本 v$local，无需更新。',
+        actionLabel: null,
+      );
+      return;
+    }
+
+    // 有新版本：展示说明 + 下载
+    final notes = update.releaseNotes.trim().isEmpty
+        ? '本次更新包含新功能与改进，建议及时更新。'
+        : update.releaseNotes.trim();
+    _showUpdateResult(
+      context,
+      title: '发现新版本 v${update.latestVersion}',
+      content: '当前版本：v$local\n\n$notes',
+      actionLabel: '下载新版本',
+      downloadUrl: update.downloadUrl,
+    );
+  }
+
+  /// 展示更新结果对话框；actionLabel 为空则只有"知道了"
+  void _showUpdateResult(
+    BuildContext context, {
+    required String title,
+    required String content,
+    String? actionLabel,
+    String? downloadUrl,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(
+          content,
+          style: const TextStyle(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('知道了'),
+          ),
+          if (actionLabel != null)
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                if (downloadUrl == null || downloadUrl.isEmpty) return;
+                final ok = await launchUrl(
+                  Uri.parse(downloadUrl),
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('无法打开下载链接，请稍后再试')),
+                  );
+                }
+              },
+              child: Text(actionLabel),
+            ),
+        ],
+      ),
+    );
+  }
 
   /// 一键清除确认
   Future<void> _confirmWipe(BuildContext context, UserProvider user) async {

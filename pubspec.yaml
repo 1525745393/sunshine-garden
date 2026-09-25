@@ -19,6 +19,8 @@ dependencies:
   sqflite: ^2.3.2
   path: ^1.8.3
   path_provider: ^2.1.1
+  package_info_plus: ^10.2.1
+  url_launcher: ^6.3.2
 
   # 可选：音效（家长中心可关闭）
   # just_audio: ^0.9.36
