@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/1525745393/sunshine-garden/compare/v1.2.0...v1.3.0) (2026-09-25)
+
+
+### Features
+
+* v1.4 错题重做增强与允许学习时间段（遗忘曲线复习 + 家长时段管控） ([1266ff4](https://github.com/1525745393/sunshine-garden/commit/1266ff40d1aa83775a1fafd3d3074a0c19eb3a00))
+
 # [1.2.0](https://github.com/1525745393/sunshine-garden/compare/v1.1.0...v1.2.0) (2026-09-25)
 
 
