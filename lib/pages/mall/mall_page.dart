@@ -107,7 +107,7 @@ class _MallPageState extends State<MallPage> {
                 Text(
                   '$score',
                   style: const TextStyle(
-                    color: Color(0xFF9A6B00),
+                    color: AppColors.priceText,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),

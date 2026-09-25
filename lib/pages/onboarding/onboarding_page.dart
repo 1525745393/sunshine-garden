@@ -106,7 +106,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x33B791FA),
+                        color: AppColors.primaryTranslucent,
                         blurRadius: 16,
                         offset: Offset(0, 6),
                       ),

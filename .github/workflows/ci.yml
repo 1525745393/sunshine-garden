@@ -1,0 +1,166 @@
+name: CI - Test & Analyze
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================
+  # Flutter 测试 & 静态分析
+  # （sunshine-garden 为根目录 Flutter 单工程，无 backend/Docker）
+  # ===========================================================
+  flutter-test:
+    name: Flutter 测试 & 分析
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          # 与代码使用的 API 匹配：
+          # - Color.withValues() 需要 Flutter 3.27+
+          # - CardThemeData/DialogThemeData 需要 Flutter 3.44+
+          flutter-version: "3.44.8"
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+
+      - name: 代码分析（lib/ 发布代码）
+        run: |
+          echo "🔍 正在检查发布代码（lib/ 目录）..."
+          echo "ℹ️  说明：info = 风格建议，warning = 需要注意，error = 严重错误（会导致失败）"
+          echo "🚦 检查标准：只有 error 级别问题才会阻断发布，info 和 warning 不影响发布"
+
+          # 运行 flutter analyze，将输出保存到文件
+          # 注意：flutter analyze 退出码 1 可能表示有 warning/info，不一定是 error
+          # 所以我们只统计 error 级别的问题数量来判断是否失败
+          set +e
+          flutter analyze --no-pub lib > /tmp/analyze_lib.txt 2>&1
+          set -e
+
+          echo ""
+          echo "📊 analyze 完成"
+
+          # 统计各类型问题数量（使用精确匹配，避免误匹配文件名中的 error）
+          ERROR_COUNT=$(grep -c "^   error •" /tmp/analyze_lib.txt || true)
+          WARNING_COUNT=$(grep -c "^   warning •" /tmp/analyze_lib.txt || true)
+          INFO_COUNT=$(grep -c "^   info •" /tmp/analyze_lib.txt || true)
+
+          echo "📊 error: $ERROR_COUNT, warning: $WARNING_COUNT, info: $INFO_COUNT"
+
+          # 只有 error 级别问题才会阻断发布
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ 发现 error 级别的编译错误！请修复后再提交"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ ERROR（严重错误 - 必须修复）："
+            grep "^   error •" /tmp/analyze_lib.txt
+            exit 1
+          fi
+
+          echo ""
+          echo "⚠️  WARNING（警告 - 建议修复）："
+          grep "^\s*warning •" /tmp/analyze_lib.txt || echo "✅ 没有 warning 级别的问题"
+          echo ""
+          echo "ℹ️  INFO（风格建议 - 可选修复）："
+          grep "^\s*info •" /tmp/analyze_lib.txt | head -20 || echo "✅ 没有 info 级别的问题"
+          if [ "$INFO_COUNT" -gt 20 ]; then
+            echo "... 还有 $((INFO_COUNT - 20)) 条 info 级别问题（已省略）"
+          fi
+
+          echo ""
+          echo "✅ 发布代码检查通过！lib/ 目录没有编译错误，可以正常构建 APK"
+
+      - name: 代码分析（test/ 测试代码）
+        run: |
+          echo "🔍 正在检查测试代码（test/ 目录）..."
+          echo "ℹ️  说明：这里的问题不会影响发布 APK，但测试代码需要保持最新"
+          echo "⚠️  如果这一步失败，只表示测试文件可能过时了，不会阻止发布"
+
+          # 运行 flutter analyze，将输出保存到文件
+          # 注意：使用 set +e 避免 analyze 退出码非零时脚本提前失败
+          set +e
+          flutter analyze --no-pub test > /tmp/analyze_test.txt 2>&1
+          set -e
+
+          # 统计各类型问题数量（使用精确匹配）
+          ERROR_COUNT=$(grep -c "^   error •" /tmp/analyze_test.txt || true)
+          WARNING_COUNT=$(grep -c "^   warning •" /tmp/analyze_test.txt || true)
+          INFO_COUNT=$(grep -c "^   info •" /tmp/analyze_test.txt || true)
+
+          echo ""
+          echo "📊 error: $ERROR_COUNT, warning: $WARNING_COUNT, info: $INFO_COUNT"
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ ERROR（严重错误）"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            grep "^   error •" /tmp/analyze_test.txt
+          else
+            echo "✅ 没有 error 级别的问题"
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "⚠️  WARNING（警告）"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if [ "$WARNING_COUNT" -gt 0 ]; then
+            grep "^   warning •" /tmp/analyze_test.txt
+          else
+            echo "✅ 没有 warning 级别的问题"
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "ℹ️  INFO（风格建议）"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if [ "$INFO_COUNT" -gt 0 ]; then
+            grep "^   info •" /tmp/analyze_test.txt | head -20
+            if [ "$INFO_COUNT" -gt 20 ]; then
+              echo "... 还有 $((INFO_COUNT - 20)) 条 info 级别问题（已省略）"
+            fi
+          else
+            echo "✅ 没有 info 级别的问题"
+          fi
+
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            echo "❌ flutter analyze 检测到 error 级别问题，CI 失败"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ 测试代码检查完成"
+
+      - name: 运行测试
+        run: |
+          echo "🧪 正在运行 Flutter 单元测试..."
+          echo "::group::flutter test --coverage"
+          flutter test --coverage
+          echo "::endgroup::"
+          echo "✅ 测试步骤完成"
+
+      - name: 上传测试覆盖率报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-coverage
+          path: coverage/lcov.info
+          if-no-files-found: ignore

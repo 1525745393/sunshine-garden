@@ -40,6 +40,21 @@ class AppColors {
 
   /// 文字次级
   static const Color textSecondary = Color(0xFF7A7F8E);
+
+  /// 浅蓝灰：进度条轨道 / 浅色卡片背景
+  static const Color trackBackground = Color(0xFFE4E8F5);
+
+  /// 淡橙：答错反馈背景（低挫败感）
+  static const Color feedbackErrorBackground = Color(0xFFFFF1E8);
+
+  /// 深琥珀：商城价格 / 强调文字
+  static const Color priceText = Color(0xFF9A6B00);
+
+  /// 透明紫：装饰性半透明背景
+  static const Color primaryTranslucent = Color(0x33B791FA);
+
+  /// 浅蓝：时间线 / 分隔线
+  static const Color lightDivider = Color(0xFFD9DFF2);
 }
 
 /// 应用主题构建器
@@ -94,7 +109,7 @@ class AppTheme {
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
-        linearTrackColor: Color(0xFFE4E8F5),
+        linearTrackColor: AppColors.trackBackground,
       ),
     );
   }

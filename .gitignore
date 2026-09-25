@@ -12,6 +12,11 @@ ios/Pods/
 ios/.symlinks/
 ios/Flutter/ephemeral/
 
+# CI / 工具产物
+coverage/
+__pycache__/
+*.pyc
+
 # 系统 / 编辑器
 .DS_Store
 *.log

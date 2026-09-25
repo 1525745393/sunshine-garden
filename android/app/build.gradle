@@ -19,6 +19,26 @@ android {
         jvmTarget = "1.8"
     }
 
+    // ============================================================
+    // Release 签名配置
+    // 由 GitHub Actions Secrets 注入（ANDROID_KEYSTORE 等，见 .github/SECRETS.md）：
+    //   - CI 发布时：keystore 以 base64 传入 → 解码为临时文件 → 使用 release 签名
+    //   - 本地开发时：无环境变量 → 回退到 debug key（与 flutter 默认行为一致）
+    // ============================================================
+    signingConfigs {
+        release {
+            if (System.getenv("ANDROID_KEYSTORE") != null) {
+                def keystorePath = "${rootProject.buildDir}/sunshine-release.jks"
+                def keystoreBytes = System.getenv("ANDROID_KEYSTORE").bytes.decodeBase64()
+                new File(keystorePath).write(keystoreBytes)
+                storeFile file(keystorePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PWD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PWD")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.sunshine.sunshine_garden"
         // You can update the following values to match your application needs.
@@ -32,9 +52,10 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // CI 注入签名 Secrets 时使用 release 签名；否则回退 debug key
+            signingConfig = System.getenv("ANDROID_KEYSTORE") != null
+                    ? signingConfigs.release
+                    : signingConfigs.getByName("debug")
         }
     }
 }

@@ -150,7 +150,7 @@ class _DayGroup extends StatelessWidget {
                             child: VerticalDivider(
                               width: 2,
                               thickness: 1.5,
-                              color: Color(0xFFD9DFF2),
+                              color: AppColors.lightDivider,
                             ),
                           ),
                         ],

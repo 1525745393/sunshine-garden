@@ -196,7 +196,7 @@ class _QuizPageState extends State<QuizPage> with WidgetsBindingObserver {
                     child: LinearProgressIndicator(
                       value: (current - 1) / total,
                       minHeight: 8,
-                      backgroundColor: const Color(0xFFE4E8F5),
+                      backgroundColor: AppColors.trackBackground,
                       valueColor:
                           const AlwaysStoppedAnimation(AppColors.primary),
                     ),
@@ -430,7 +430,7 @@ class _FeedbackPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: correct ? AppColors.rewardBackground : const Color(0xFFFFF1E8),
+        color: correct ? AppColors.rewardBackground : AppColors.feedbackErrorBackground,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(

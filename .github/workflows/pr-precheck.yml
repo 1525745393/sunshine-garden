@@ -1,0 +1,45 @@
+name: PR Precheck
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check:
+          - analyze
+          - test
+          - lint-shell
+          - lint-yaml
+          - security
+          - theme-tokens
+          - pr-template
+    name: precheck / ${{ matrix.check }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Flutter
+        if: contains(fromJson('["analyze","test","theme-tokens"]'), matrix.check)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Setup Python
+        if: matrix.check == 'lint-yaml'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install yamllint
+        if: matrix.check == 'lint-yaml'
+        run: pip install yamllint
+      - name: Run check
+        run: ./scripts/ci/precheck-${{ matrix.check }}.sh
+        shell: bash

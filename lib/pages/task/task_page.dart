@@ -152,7 +152,7 @@ class _TaskPageState extends State<TaskPage> {
             child: LinearProgressIndicator(
               value: task.progress,
               minHeight: 10,
-              backgroundColor: const Color(0xFFE4E8F5),
+              backgroundColor: AppColors.trackBackground,
               valueColor: const AlwaysStoppedAnimation(AppColors.success),
             ),
           ),

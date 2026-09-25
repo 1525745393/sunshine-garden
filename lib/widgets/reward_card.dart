@@ -86,7 +86,7 @@ class RewardCard extends StatelessWidget {
                           '${item.price} 分',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF9A6B00),
+                            color: AppColors.priceText,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
