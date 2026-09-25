@@ -1,7 +1,7 @@
 name: sunshine_garden
 description: 阳光花园・学习乐园 - K-12 儿童游戏化学习激励应用（Flutter 3）
 publish_to: 'none'
-version: 1.0.0+15
+version: 1.0.3+15
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
