@@ -129,6 +129,8 @@ class UserProvider extends ChangeNotifier {
     bool? soundEnabled,
     bool? animationEnabled,
     bool? darkMode,
+    int? dailyTargetScore,
+    bool? filterCurrentStage,
   }) async {
     final p = _profile;
     if (p == null) return;
@@ -138,6 +140,8 @@ class UserProvider extends ChangeNotifier {
     if (soundEnabled != null) p.soundEnabled = soundEnabled;
     if (animationEnabled != null) p.animationEnabled = animationEnabled;
     if (darkMode != null) p.darkMode = darkMode;
+    if (dailyTargetScore != null) p.dailyTargetScore = dailyTargetScore;
+    if (filterCurrentStage != null) p.filterCurrentStage = filterCurrentStage;
     await _persistProfile();
   }
 

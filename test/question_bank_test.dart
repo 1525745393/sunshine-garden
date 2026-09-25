@@ -26,8 +26,11 @@ void main() {
         for (final level in levels) {
           for (final q in level.questions) {
             expect(q.question.trim(), isNotEmpty, reason: '${q.id} 题面为空');
-            expect(q.options.length, greaterThanOrEqualTo(2),
-                reason: '${q.id} 选项不足');
+            // 选择题/阅读题必须有 2 个以上选项；填空/判断类题目无选项属正常
+            if (q.options != null) {
+              expect(q.options!.length, greaterThanOrEqualTo(2),
+                  reason: '${q.id} 选项不足');
+            }
             expect(q.answer.trim(), isNotEmpty, reason: '${q.id} 答案为空');
             expect(q.analysis.trim(), isNotEmpty, reason: '${q.id} 解析为空');
           }

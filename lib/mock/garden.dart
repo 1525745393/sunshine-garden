@@ -3,8 +3,9 @@ import '../models/garden_plot.dart';
 /// 默认花园地块（mock 数据，与业务代码解耦）
 ///
 /// 首块默认解锁，其余按解锁积分递增；价格区间覆盖小/中/大三档奖励，
-/// 与商城商品价格带错开，避免孩子"只种花不兑换"。
-const defaultPlots = <GardenPlot>[
+/// 与商城商品价格带开错开，避免孩子"只种花不兑换"。
+/// 注意：地块解锁状态在运行时可被修改，故不用 const 列表。
+final defaultPlots = <GardenPlot>[
   GardenPlot(
     id: 'g1',
     name: '向日葵田',

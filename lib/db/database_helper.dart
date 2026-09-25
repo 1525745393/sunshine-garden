@@ -15,7 +15,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbName = 'sunshine_garden.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
   Database? _db;
 
   Future<Database> get database async {
@@ -43,7 +43,9 @@ class DatabaseHelper {
             daily_minutes INTEGER,
             sound_enabled INTEGER DEFAULT 1,
             animation_enabled INTEGER DEFAULT 1,
-            dark_mode INTEGER DEFAULT 0
+            dark_mode INTEGER DEFAULT 0,
+            daily_target_score INTEGER DEFAULT 0,
+            filter_current_stage INTEGER DEFAULT 0
           )
         ''');
         // 关卡进度
@@ -94,7 +96,7 @@ class DatabaseHelper {
             score_change INTEGER DEFAULT 0
           )
         ''');
-        // 商城商品兑换状态
+        // 商城商品兑换状态（v1.3：custom 标记家长自定义奖励）
         await db.execute('''
           CREATE TABLE rewards (
             id TEXT PRIMARY KEY,
@@ -102,17 +104,20 @@ class DatabaseHelper {
             icon TEXT,
             price INTEGER,
             tier TEXT,
-            redeemed INTEGER DEFAULT 0
+            redeemed INTEGER DEFAULT 0,
+            custom INTEGER DEFAULT 0
           )
         ''');
-        // 兑换记录
+        // 兑换记录（v1.3：status = pending/approved/rejected，大奖励需家长审批）
         await db.execute('''
           CREATE TABLE redemptions (
             id TEXT PRIMARY KEY,
             reward_name TEXT,
             reward_icon TEXT,
             cost INTEGER,
-            redeemed_at TEXT
+            redeemed_at TEXT,
+            status TEXT DEFAULT 'approved',
+            tier TEXT DEFAULT 'small'
           )
         ''');
         // 勋章状态
@@ -137,7 +142,7 @@ class DatabaseHelper {
           )
         ''');
       },
-      // 老版本升级：v1.0 已有库 → 补齐 v1.1 新增表
+      // 老版本升级：v1.0 已有库 → 补齐 v1.1 新增表；v1.3 追加审批/自定义奖励/家长设置列
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('''
@@ -150,6 +155,18 @@ class DatabaseHelper {
               unlocked INTEGER DEFAULT 0
             )
           ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+              "ALTER TABLE redemptions ADD COLUMN status TEXT DEFAULT 'approved'");
+          await db.execute(
+              "ALTER TABLE redemptions ADD COLUMN tier TEXT DEFAULT 'small'");
+          await db.execute(
+              'ALTER TABLE rewards ADD COLUMN custom INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN daily_target_score INTEGER DEFAULT 0');
+          await db.execute(
+              'ALTER TABLE users ADD COLUMN filter_current_stage INTEGER DEFAULT 0');
         }
       },
     );
@@ -304,6 +321,17 @@ class DatabaseHelper {
     final db = await database;
     final rows = await db.query('redemptions', orderBy: 'redeemed_at DESC');
     return rows.map(RedemptionRecord.fromMap).toList();
+  }
+
+  /// 更新兑换记录审批状态（v1.3 奖励审批：pending → approved / rejected）
+  Future<void> updateRedemptionStatus(String id, String status) async {
+    final db = await database;
+    await db.update(
+      'redemptions',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ---------- 勋章 ----------

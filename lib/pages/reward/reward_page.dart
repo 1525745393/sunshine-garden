@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 import 'package:provider/provider.dart';
 
 import '../../models/reward.dart';
@@ -107,7 +107,10 @@ class _RewardPageState extends State<RewardPage> {
                     childAspectRatio: 0.88,
                   ),
                   itemCount: badges.length,
-                  itemBuilder: (context, i) => BadgeItem(badge: badges[i]),
+                  itemBuilder: (context, i) => BadgeItem(
+                    badge: badges[i],
+                    onTap: () => _showBadgeDetail(context, badges[i]),
+                  ),
                 );
               },
             ),
@@ -116,8 +119,54 @@ class _RewardPageState extends State<RewardPage> {
     );
   }
 
-  /// 兑换记录列表
+  /// 勋章详情弹窗：名称 + 图标 + 解锁条件 + 当前状态
+  void _showBadgeDetail(BuildContext context, Badge badge) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${badge.icon} ${badge.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              badge.condition,
+              style: const TextStyle(fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              badge.unlocked ? '🎉 已解锁，太棒了！' : '🔒 继续学习即可解锁',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: badge.unlocked ? AppColors.success : AppColors.warning,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('好的'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 兑换记录列表（按日期分组，时间线）
   Widget _buildRedemptionList(List<RedemptionRecord> redemptions) {
+    // 按日期分组（倒序）
+    final groups = <String, List<RedemptionRecord>>{};
+    for (final r in redemptions) {
+      final key = _dateKey(r.redeemedAt);
+      groups.putIfAbsent(key, () => []).add(r);
+    }
+    final days = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -145,57 +194,121 @@ class _RewardPageState extends State<RewardPage> {
               ),
             )
           else
-            ...redemptions.map(
-              (r) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
+            ...days.map((day) {
+              final items = groups[day]!;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(r.rewardIcon, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        r.rewardName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textMain,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      _fmtDateShort(day),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.lightDivider,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '-${r.cost} 分',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.warning,
-                          ),
+                    const SizedBox(height: 4),
+                    ...items.map(
+                      (r) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Text(r.rewardIcon,
+                                style: const TextStyle(fontSize: 22)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                r.rewardName,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMain,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '-${r.cost} 分',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.warning,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                // v1.3：审批状态徽标（大奖励）
+                                _StatusChip(status: r.status),
+                                Text(
+                                  _fmtTime(r.redeemedAt),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        Text(
-                          _fmtDate(r.redeemedAt),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+            }),
         ],
       ),
     );
   }
 
-  /// 兑换时间展示：MM月DD日 HH:mm
-  String _fmtDate(DateTime t) =>
-      '${t.month}月${t.day}日 ${t.hour.toString().padLeft(2, '0')}:'
-      '${t.minute.toString().padLeft(2, '0')}';
+  /// 日期 key：yyyy-MM-dd
+  String _dateKey(DateTime t) =>
+      '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+
+  /// 分组标题：今天 / 昨天 / M月d日
+  String _fmtDateShort(String key) {
+    final today = _dateKey(DateTime.now());
+    if (key == today) return '今天';
+    final yesterday = _dateKey(
+        DateTime.now().subtract(const Duration(days: 1)));
+    if (key == yesterday) return '昨天';
+    final parts = key.split('-');
+    return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
+  }
+
+  /// 兑换时间展示：HH:mm
+  String _fmtTime(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+}
+
+/// 兑换状态徽标（v1.3 奖励审批）
+class _StatusChip extends StatelessWidget {
+  final String status;
+  const _StatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (status) {
+      'pending' => ('待家长确认', AppColors.warning),
+      'rejected' => ('未通过', AppColors.textSecondary),
+      _ => ('已领取', AppColors.success),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, color: color),
+      ),
+    );
+  }
 }

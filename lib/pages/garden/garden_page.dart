@@ -7,7 +7,8 @@ import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/plot_tile.dart';
 
-/// 阳光花园（v1.1）：地块网格，已解锁显示植物，锁定地块用积分解锁
+/// 阳光花园（v1.1）：地块网格，已解锁显示植物，锁定地块用积分解锁。
+/// v1.2 增强：解锁二次确认（防误触扣分）+ 植物详情弹窗 + 满园彩蛋。
 class GardenPage extends StatefulWidget {
   const GardenPage({super.key});
 
@@ -35,6 +36,7 @@ class _GardenPageState extends State<GardenPage> {
         final score = user.totalScore;
         final total = garden.plots.length;
         final unlocked = garden.unlockedCount;
+        final isFull = unlocked == total && total > 0;
 
         return SafeArea(
           child: ListView(
@@ -49,15 +51,16 @@ class _GardenPageState extends State<GardenPage> {
                 ),
                 child: Row(
                   children: [
-                    const Text('🌻', style: TextStyle(fontSize: 34)),
+                    Text(isFull ? '🎉' : '🌻',
+                        style: const TextStyle(fontSize: 34)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '我的小花园',
-                            style: TextStyle(
+                          Text(
+                            isFull ? '花园满园啦！' : '我的小花园',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -65,7 +68,9 @@ class _GardenPageState extends State<GardenPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '已解锁 $unlocked/$total 块地',
+                            isFull
+                                ? '全部 $total 块地都已解锁 🌈'
+                                : '已解锁 $unlocked/$total 块地',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -114,7 +119,8 @@ class _GardenPageState extends State<GardenPage> {
                       return PlotTile(
                         plot: plot,
                         score: score,
-                        onUnlock: (p) => _unlock(context, p),
+                        onUnlock: (p) => _confirmUnlock(context, p),
+                        onTap: plot.unlocked ? () => _showPlotDetail(context, plot) : null,
                       );
                     },
                   );
@@ -124,6 +130,62 @@ class _GardenPageState extends State<GardenPage> {
           ),
         );
       },
+    );
+  }
+
+  /// 解锁二次确认：防止孩子误触扣分
+  Future<void> _confirmUnlock(BuildContext context, GardenPlot plot) async {
+    final user = UserProvider.instance;
+    if (user.totalScore < plot.price) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('积分不够哦，还差 ${plot.price - user.totalScore} 分')),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('解锁 ${plot.name}？'),
+        content: Text('将花费 ${plot.price} 阳光积分解锁「${plot.icon} ${plot.name}」\n${plot.description}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('再想想'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('确定解锁'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await _unlock(context, plot);
+  }
+
+  /// 植物详情弹窗（已解锁地块点击查看）
+  void _showPlotDetail(BuildContext context, GardenPlot plot) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${plot.icon} ${plot.name}'),
+        content: Text(
+          '${plot.description}\n\n已解锁地块，每天都会在这里陪伴你学习～',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('好的'),
+          ),
+        ],
+      ),
     );
   }
 

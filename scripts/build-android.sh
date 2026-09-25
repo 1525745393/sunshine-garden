@@ -18,6 +18,9 @@ flutter pub get
 echo "📦 构建 APK（split-per-abi）..."
 flutter build apk --release --split-per-abi
 
+echo "📦 构建 APK（universal，供 GitHub Release 通用安装包）..."
+flutter build apk --release
+
 echo "📦 构建 AAB（App Bundle）..."
 flutter build appbundle --release
 

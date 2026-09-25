@@ -7,7 +7,8 @@ import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/reward_card.dart';
 
-/// 阳光商城（v1.1）：奖励商品卡片，积分足够扣分兑换，否则禁用
+/// 阳光商城（v1.1）：奖励商品卡片，积分足够扣分兑换，否则禁用。
+/// v1.2 增强：奖励档次筛选（全部/小/中/大）。
 class MallPage extends StatefulWidget {
   const MallPage({super.key});
 
@@ -16,6 +17,9 @@ class MallPage extends StatefulWidget {
 }
 
 class _MallPageState extends State<MallPage> {
+  /// 当前档次筛选：all / small / medium / big
+  String _tierFilter = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -34,17 +38,24 @@ class _MallPageState extends State<MallPage> {
         }
         final score = user.totalScore;
         final items = reward.items;
+        final filtered = _tierFilter == 'all'
+            ? items
+            : items.where((i) => i.tier == _tierFilter).toList();
 
         return SafeArea(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: items.length + 1,
+            itemCount: filtered.length + 2,
             itemBuilder: (context, i) {
               // 顶部标题卡
               if (i == 0) {
                 return _buildHeader(score, reward.redeemedCount, items.length);
               }
-              final item = items[i - 1];
+              // 档次筛选条
+              if (i == 1) {
+                return _buildFilterBar();
+              }
+              final item = filtered[i - 2];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: RewardCard(
@@ -116,6 +127,40 @@ class _MallPageState extends State<MallPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 档次筛选条
+  Widget _buildFilterBar() {
+    const options = [
+      ('all', '全部'),
+      ('small', '小奖励'),
+      ('medium', '中奖励'),
+      ('big', '大奖励'),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: options.map((opt) {
+          final (key, label) = opt;
+          final selected = _tierFilter == key;
+          return ChoiceChip(
+            label: Text(label),
+            selected: selected,
+            onSelected: (_) => setState(() => _tierFilter = key),
+            selectedColor: AppColors.menuSelected,
+            labelStyle: TextStyle(
+              color: selected ? AppColors.primary : AppColors.textSecondary,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+          );
+        }).toList(),
       ),
     );
   }

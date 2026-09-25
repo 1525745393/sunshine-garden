@@ -6,10 +6,11 @@ import 'package:provider/provider.dart';
 import '../../db/database_helper.dart';
 import '../../models/user_profile.dart';
 import '../../providers/quiz_provider.dart';
+import '../../providers/reward_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 
-/// 家长中心：算术验证 → 档案 / 时长 / 偏好设置 / 一键清除
+/// 家长中心：算术验证 → 报告 / 档案 / 审批 / 时长 / 偏好 / 一键清除
 class ParentCenterPage extends StatefulWidget {
   const ParentCenterPage({super.key});
 
@@ -56,6 +57,8 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
     final user = context.watch<UserProvider>();
     final profile = user.profile!;
     final quiz = context.watch<QuizProvider>();
+    final reward = context.watch<RewardProvider>();
+    final pending = reward.pendingRedemptions;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -101,6 +104,72 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
           ),
           const SizedBox(height: 14),
 
+          // 奖励审批（v1.3 大奖励需家长确认）
+          _SectionCard(
+            title: '奖励审批（${pending.length}）',
+            child: pending.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      '暂无待审批的奖励',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  )
+                : Column(
+                    children: pending.map((r) {
+                      return ListTile(
+                        leading: Text(r.rewardIcon,
+                            style: const TextStyle(fontSize: 24)),
+                        title: Text(
+                          r.rewardName,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          '${r.cost} 阳光积分 · ${_tierLabel(r.tier)} · '
+                          '${r.redeemedAt.month}月${r.redeemedAt.day}日',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.check_circle,
+                                  color: AppColors.success),
+                              tooltip: '批准',
+                              onPressed: () async {
+                                await reward.approveRedemption(r);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content:
+                                            Text('已批准：${r.rewardName}')),
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.cancel,
+                                  color: AppColors.warning),
+                              tooltip: '拒绝并退回积分',
+                              onPressed: () async {
+                                await reward.rejectRedemption(r);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            '已拒绝：退回 ${r.cost} 阳光积分')),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+          ),
+          const SizedBox(height: 14),
+
           // 孩子档案
           _SectionCard(
             title: '孩子档案',
@@ -133,6 +202,43 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                   subtitle: const Text('修改后题库与默认时长自动切换'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _showStageGradeDialog(context, profile),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined,
+                      color: AppColors.primary),
+                  title: const Text('每日目标积分'),
+                  subtitle: Text(profile.dailyTargetScore == 0
+                      ? '未设置（点击设置今日成就目标）'
+                      : '今日达成 ${profile.dailyTargetScore} 分获得成就卡片'),
+                  trailing: Text(
+                    profile.dailyTargetScore == 0
+                        ? '未设置'
+                        : '${profile.dailyTargetScore} 分',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () => _showDailyTargetDialog(context, profile),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // 奖励管理（v1.3 自定义奖励）
+          _SectionCard(
+            title: '奖励管理',
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.add_circle_outline,
+                      color: AppColors.primary),
+                  title: const Text('添加自定义奖励'),
+                  subtitle: const Text('自定义奖励会出现在阳光商城'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showCustomRewardDialog(context),
                 ),
               ],
             ),
@@ -204,6 +310,16 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                   secondary:
                       const Icon(Icons.dark_mode, color: AppColors.primary),
                   title: const Text('深色模式'),
+                ),
+                SwitchListTile(
+                  value: profile.filterCurrentStage,
+                  onChanged: (v) async {
+                    await user.updateSettings(filterCurrentStage: v);
+                  },
+                  secondary: const Icon(Icons.filter_alt,
+                      color: AppColors.primary),
+                  title: const Text('内容过滤：仅当前学段关卡'),
+                  subtitle: const Text('闯关列表只显示本学段内容'),
                 ),
               ],
             ),
@@ -397,6 +513,191 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
       ),
     );
   }
+
+  /// 修改每日目标积分（0 表示关闭成就目标）
+  Future<void> _showDailyTargetDialog(
+      BuildContext context, UserProfile profile) async {
+    var target = profile.dailyTargetScore;
+    const presets = [0, 30, 50, 100, 150];
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('每日目标积分'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                target == 0 ? '未设置' : '$target 分',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: presets.map((p) {
+                  return ChoiceChip(
+                    label: Text(p == 0 ? '关闭' : '$p'),
+                    selected: target == p,
+                    onSelected: (v) => setDialogState(() => target = p),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 12),
+              Slider(
+                value: target.toDouble().clamp(0, 200),
+                min: 0,
+                max: 200,
+                divisions: 20,
+                label: '$target',
+                onChanged: (v) => setDialogState(() => target = v.round()),
+              ),
+              const Text(
+                '孩子当日获得积分达到目标后，会获得"今日成就"卡片',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                await UserProvider.instance
+                    .updateSettings(dailyTargetScore: target);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('保存'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 家长自定义奖励表单（v1.3）
+  Future<void> _showCustomRewardDialog(BuildContext context) async {
+    final nameCtrl = TextEditingController();
+    final iconCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    String tier = 'small';
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('添加自定义奖励'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '奖励名称',
+                    hintText: '例如：看一集动画片',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: iconCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '图标（emoji）',
+                    hintText: '例如：🎬',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: priceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '所需积分',
+                    hintText: '例如：80',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('小奖励'),
+                      selected: tier == 'small',
+                      onSelected: (_) => setDialogState(() => tier = 'small'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('中奖励'),
+                      selected: tier == 'medium',
+                      onSelected: (_) => setDialogState(() => tier = 'medium'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('大奖励（需家长确认）'),
+                      selected: tier == 'big',
+                      onSelected: (_) => setDialogState(() => tier = 'big'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final price = int.tryParse(priceCtrl.text.trim());
+                if (name.isEmpty || price == null || price <= 0) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      const SnackBar(content: Text('请填写名称和有效积分')),
+                    );
+                  }
+                  return;
+                }
+                await RewardProvider.instance.addCustomReward(
+                  name: name,
+                  icon: iconCtrl.text.trim(),
+                  price: price,
+                  tier: tier,
+                );
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(content: Text('已添加奖励：$name')),
+                  );
+                }
+              },
+              child: const Text('添加'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nameCtrl.dispose();
+    iconCtrl.dispose();
+    priceCtrl.dispose();
+  }
+
+  /// 奖励档次标签
+  static String _tierLabel(String tier) => switch (tier) {
+        'small' => '小奖励',
+        'medium' => '中奖励',
+        _ => '大奖励',
+      };
 
   /// 一键清除确认
   Future<void> _confirmWipe(BuildContext context, UserProvider user) async {

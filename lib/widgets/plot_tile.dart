@@ -5,18 +5,20 @@ import '../theme/app_theme.dart';
 
 /// 花园地块卡（阳光花园 v1.1）
 ///
-/// 已解锁：白底 + 植物 + 名称；锁定：灰底 + 🔒 + 解锁按钮。
+/// 已解锁：白底 + 植物 + 名称（可点击查看详情）；锁定：灰底 + 🔒 + 解锁按钮。
 /// 按钮最小点击区域 48 高；积分不足时禁用并显示差额。
 class PlotTile extends StatelessWidget {
   final GardenPlot plot;
   final int score; // 当前阳光积分
-  final Future<String> Function(GardenPlot) onUnlock;
+  final Future<void> Function(GardenPlot) onUnlock;
+  final VoidCallback? onTap; // 已解锁地块点击（详情弹窗）
 
   const PlotTile({
     super.key,
     required this.plot,
     required this.score,
     required this.onUnlock,
+    this.onTap,
   });
 
   @override
@@ -27,9 +29,9 @@ class PlotTile extends StatelessWidget {
     return _buildLocked(context);
   }
 
-  /// 已解锁地块：植物展示
+  /// 已解锁地块：植物展示（可点击查看详情）
   Widget _buildUnlocked() {
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -53,7 +55,7 @@ class PlotTile extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           const Text(
-            '已解锁',
+            '已解锁 · 点我查看',
             style: TextStyle(
               fontSize: 11,
               color: AppColors.success,
@@ -61,6 +63,17 @@ class PlotTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    // 已解锁地块可点击查看详情
+    if (onTap == null) return content;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: content,
       ),
     );
   }

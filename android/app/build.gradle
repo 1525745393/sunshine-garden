@@ -29,9 +29,11 @@ android {
         release {
             if (System.getenv("ANDROID_KEYSTORE") != null) {
                 def keystorePath = "${rootProject.buildDir}/sunshine-release.jks"
-                def keystoreBytes = System.getenv("ANDROID_KEYSTORE").bytes.decodeBase64()
-                new File(keystorePath).write(keystoreBytes)
-                storeFile file(keystorePath)
+                def keystoreBytes = System.getenv("ANDROID_KEYSTORE").decodeBase64()
+                def keystoreFile = new File(keystorePath)
+                keystoreFile.parentFile.mkdirs() // CI 全新工作区 buildDir 可能不存在
+                keystoreFile.bytes = keystoreBytes
+                storeFile keystoreFile
                 storePassword System.getenv("ANDROID_KEYSTORE_PWD")
                 keyAlias System.getenv("ANDROID_KEY_ALIAS")
                 keyPassword System.getenv("ANDROID_KEY_PWD")

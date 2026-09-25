@@ -8,6 +8,9 @@ import 'user_provider.dart';
 
 /// 今日任务状态：按日期加载 / 勾选发积分 / 进度
 class TaskProvider extends ChangeNotifier {
+  TaskProvider._();
+  static final TaskProvider instance = TaskProvider._();
+
   List<Task> _tasks = [];
   String _dayKey = '';
   bool _loaded = false;

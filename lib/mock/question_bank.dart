@@ -8,7 +8,8 @@ import '../models/question.dart';
 ///
 /// v1.0 交付：小学低年级 4 关 23 题（≥3 关 / 20 题验收通过）；
 /// 幼儿园、初中各预留 1 关作为代码分支验证数据。
-library;
+///
+/// 注意：关卡星级/解锁状态在运行时可被修改，故不用 const 列表。
 
 /// 获取指定学段的关卡列表（含题目）
 List<Level> levelsForStage(String stage) {
@@ -20,7 +21,7 @@ List<Level> levelsForStage(String stage) {
 }
 
 /// 小学低年级（1-2 年级）· 主战场
-const _primaryLevels = <Level>[
+final _primaryLevels = <Level>[
   Level(
     id: 'p_l1',
     stage: 'primary',
@@ -386,7 +387,7 @@ const _primaryLevels = <Level>[
 ];
 
 /// 幼儿园预留关卡（v1.1 完整实现，此处验证数据结构）
-const _kindergartenLevels = <Level>[
+final _kindergartenLevels = <Level>[
   Level(
     id: 'k_l1',
     stage: 'kindergarten',
@@ -428,7 +429,7 @@ const _kindergartenLevels = <Level>[
 ];
 
 /// 初中预留关卡（v1.2 完整实现，此处验证数据结构）
-const _middleLevels = <Level>[
+final _middleLevels = <Level>[
   Level(
     id: 'm_l1',
     stage: 'middle',

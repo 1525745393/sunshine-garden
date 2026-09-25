@@ -40,6 +40,9 @@ class QuizSession {
 
 /// 闯关全局状态：关卡进度 / 闯关会话 / 错题本 / 积分结算
 class QuizProvider extends ChangeNotifier {
+  QuizProvider._();
+  static final QuizProvider instance = QuizProvider._();
+
   final Random _random = Random();
 
   List<Level> _levels = [];

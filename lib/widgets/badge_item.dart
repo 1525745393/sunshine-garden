@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Badge;
 
 import '../models/reward.dart';
 import '../theme/app_theme.dart';
@@ -6,15 +6,17 @@ import '../theme/app_theme.dart';
 /// 勋章卡（我的奖励 v1.1）
 ///
 /// 已解锁：淡紫底 + 彩色 emoji；未解锁：灰底 + 🔒 + 解锁条件说明。
+/// v1.2 增强：点击可查看勋章详情。
 class BadgeItem extends StatelessWidget {
   final Badge badge;
+  final VoidCallback? onTap;
 
-  const BadgeItem({super.key, required this.badge});
+  const BadgeItem({super.key, required this.badge, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final unlocked = badge.unlocked;
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: unlocked
@@ -73,6 +75,17 @@ class BadgeItem extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+    // 点击查看详情
+    if (onTap == null) return content;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: content,
       ),
     );
   }

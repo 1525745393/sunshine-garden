@@ -31,6 +31,8 @@ class UserProfile {
   bool soundEnabled;
   bool animationEnabled;
   bool darkMode;
+  int dailyTargetScore; // 每日目标积分（v1.3，0=未设置）
+  bool filterCurrentStage; // 内容过滤：仅当前学段关卡（v1.3）
 
   UserProfile({
     required this.id,
@@ -45,6 +47,8 @@ class UserProfile {
     this.soundEnabled = true,
     this.animationEnabled = true,
     this.darkMode = false,
+    this.dailyTargetScore = 0,
+    this.filterCurrentStage = false,
   }) : dailyMinutes = dailyMinutes ?? stage.defaultDailyMinutes;
 
   Map<String, dynamic> toMap() => {
@@ -60,6 +64,8 @@ class UserProfile {
         'sound_enabled': soundEnabled ? 1 : 0,
         'animation_enabled': animationEnabled ? 1 : 0,
         'dark_mode': darkMode ? 1 : 0,
+        'daily_target_score': dailyTargetScore,
+        'filter_current_stage': filterCurrentStage ? 1 : 0,
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) => UserProfile(
@@ -80,5 +86,7 @@ class UserProfile {
         soundEnabled: (map['sound_enabled'] as num?)?.toInt() == 1,
         animationEnabled: (map['animation_enabled'] as num?)?.toInt() == 1,
         darkMode: (map['dark_mode'] as num?)?.toInt() == 1,
+        dailyTargetScore: (map['daily_target_score'] as num?)?.toInt() ?? 0,
+        filterCurrentStage: (map['filter_current_stage'] as num?)?.toInt() == 1,
       );
 }

@@ -24,6 +24,14 @@ class _LevelSelectPageState extends State<LevelSelectPage> {
     final user = context.watch<UserProvider>();
     final timeUp = user.isTimeUp;
 
+    // v1.3 内容过滤：家长开启后仅显示当前学段关卡
+    final profile = user.profile;
+    final levels = (profile?.filterCurrentStage ?? false) && profile != null
+        ? quiz.levels
+            .where((l) => l.stage == profile.stage.name)
+            .toList()
+        : quiz.levels;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -58,7 +66,7 @@ class _LevelSelectPageState extends State<LevelSelectPage> {
               ),
             const SizedBox(height: 14),
             // 学科/关卡列表
-            ...quiz.levels.map(
+            ...levels.map(
               (level) => LevelCard(
                 level: level,
                 onTap: () {

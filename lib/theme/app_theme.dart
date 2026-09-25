@@ -23,6 +23,9 @@ class AppColors {
   /// 任务完成色：绿
   static const Color success = Color(0xFF34C38F);
 
+  /// 任务完成浅底：淡绿（v1.3 今日成就卡）
+  static const Color successBackground = Color(0xFFE4F9F0);
+
   /// 奖励区背景：淡黄
   static const Color rewardBackground = Color(0xFFFFF8E4);
 
