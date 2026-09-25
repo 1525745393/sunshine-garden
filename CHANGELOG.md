@@ -1,3 +1,15 @@
+# [1.1.0](https://github.com/1525745393/sunshine-garden/compare/v1.0.3...v1.1.0) (2026-09-25)
+
+
+### Bug Fixes
+
+* 恢复版本基线 1.0.3（清除 CI 误判生成的 1.0.0 发布基线） ([1de56e6](https://github.com/1525745393/sunshine-garden/commit/1de56e6f15da99de130986fe19f82ccf55f1ddb6))
+
+
+### Features
+
+* v1.3 家长中心增强完整实现（奖励审批/自定义奖励/每日目标成就/内容过滤） ([55af549](https://github.com/1525745393/sunshine-garden/commit/55af549783f3a605a12c327536a0b14899f482ea))
+
 # 1.0.0 (2026-09-25)
 
 
