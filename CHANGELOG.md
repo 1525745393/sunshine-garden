@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/1525745393/sunshine-garden/compare/v1.4.0...v1.5.0) (2026-09-26)
+
+
+### Features
+
+* v1.5 多孩子档案切换（独立学习数据/每日限额，家长中心管理档案） ([d63fb06](https://github.com/1525745393/sunshine-garden/commit/d63fb0643469ca15ffec6852ae98bf806bb018d3))
+
 # [1.4.0](https://github.com/1525745393/sunshine-garden/compare/v1.3.0...v1.4.0) (2026-09-25)
 
 
