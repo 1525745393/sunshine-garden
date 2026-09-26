@@ -13,6 +13,9 @@ class Mistake {
   /// 已重做正确则移出错题本
   bool resolved;
 
+  /// 关联知识点（如"字词、拼音"，v1.6 用于薄弱知识点分析）
+  final String knowledge;
+
   Mistake({
     required this.id,
     required this.questionText,
@@ -22,6 +25,7 @@ class Mistake {
     required this.addedAt,
     required this.nextReviewAt,
     this.resolved = false,
+    this.knowledge = '',
   });
 
   Map<String, dynamic> toMap() => {
@@ -33,6 +37,7 @@ class Mistake {
         'added_at': addedAt.toIso8601String(),
         'next_review_at': nextReviewAt.toIso8601String(),
         'resolved': resolved ? 1 : 0,
+        'knowledge': knowledge,
       };
 
   factory Mistake.fromMap(Map<String, dynamic> map) => Mistake(
@@ -44,5 +49,6 @@ class Mistake {
         addedAt: DateTime.parse(map['added_at'] as String),
         nextReviewAt: DateTime.parse(map['next_review_at'] as String),
         resolved: (map['resolved'] as num?)?.toInt() == 1,
+        knowledge: map['knowledge'] as String? ?? '',
       );
 }

@@ -15,7 +15,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbName = 'sunshine_garden.db';
-  static const _dbVersion = 5; // v1.5 多孩子档案：业务表按 user_id 隔离
+  static const _dbVersion = 6; // v1.6 错题本关联知识点（薄弱分析）
   Database? _db;
 
   Future<Database> get database async {
@@ -29,7 +29,7 @@ class DatabaseHelper {
       path,
       version: _dbVersion,
       onCreate: (db, version) async {
-        // 用户档案（单孩子，v1.0）
+        // 用户档案（多孩子，v1.5 起支持多档案）
         await db.execute('''
           CREATE TABLE users (
             id TEXT PRIMARY KEY,
@@ -90,7 +90,8 @@ class DatabaseHelper {
             analysis TEXT,
             added_at TEXT,
             next_review_at TEXT,
-            resolved INTEGER DEFAULT 0
+            resolved INTEGER DEFAULT 0,
+            knowledge TEXT DEFAULT ''
           )
         ''');
         // 学习记录
@@ -196,6 +197,11 @@ class DatabaseHelper {
               'ALTER TABLE users ADD COLUMN allowed_start_hour INTEGER DEFAULT 0');
           await db.execute(
               'ALTER TABLE users ADD COLUMN allowed_end_hour INTEGER DEFAULT 24');
+        }
+        if (oldVersion < 6) {
+          // v1.6 错题本关联知识点（薄弱知识点分析）
+          await db.execute(
+              "ALTER TABLE mistakes ADD COLUMN knowledge TEXT DEFAULT ''");
         }
         if (oldVersion < 5) {
           // v1.5 多孩子档案：全部业务表按 user_id 隔离（旧数据归入默认档案）

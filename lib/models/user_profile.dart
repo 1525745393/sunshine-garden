@@ -15,7 +15,7 @@ enum StudyStage {
       };
 }
 
-/// 用户档案（单孩子档案，v1.0 仅一条）
+/// 用户档案（v1.5 多孩子：每个档案一行，独立学习数据）
 class UserProfile {
   final String id;
   final String nickname;

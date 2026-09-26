@@ -111,6 +111,23 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
                   _report,
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
+                // 薄弱知识点（v1.6：错题聚合，家长针对性辅导）
+                if (quiz.weakKnowledgePoints.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '薄弱知识点：${quiz.weakKnowledgePoints.join('、')}',
+                      style: const TextStyle(
+                          color: Color(0xFFFFD9A8), fontSize: 12),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

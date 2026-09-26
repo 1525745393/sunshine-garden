@@ -130,6 +130,7 @@ class QuizProvider extends ChangeNotifier {
         analysis: q.analysis,
         addedAt: DateTime.now(),
         nextReviewAt: DateTime.now().add(const Duration(days: 1)),
+        knowledge: q.knowledge.join('、'),
       );
       await DatabaseHelper.instance.upsertMistake(UserProvider.instance.currentProfileId, mistake);
     }
@@ -218,6 +219,21 @@ class QuizProvider extends ChangeNotifier {
 
   /// 答案归一化（去空白、统一小写，兼容填空）
   String _normalize(String s) => s.trim().toLowerCase();
+
+  /// 薄弱知识点：错题本中未解决题目的知识点聚合（出现次数 top3，v1.6）
+  List<String> get weakKnowledgePoints {
+    final counts = <String, int>{};
+    for (final m in _mistakes) {
+      for (final k in m.knowledge.split('、')) {
+        final t = k.trim();
+        if (t.isEmpty) continue;
+        counts[t] = (counts[t] ?? 0) + 1;
+      }
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(3).map((e) => e.key).toList();
+  }
 
   // ---------- 错题本 ----------
   Future<void> loadMistakes() async {

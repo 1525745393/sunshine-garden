@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Flutter needs Internet permission for hot reload / debug; 产品无联网功能 -->
+    <!-- 网络权限：检查更新（家长中心）需要访问 GitHub Release API -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="阳光花园学习乐园"
