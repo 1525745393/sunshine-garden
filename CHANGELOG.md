@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/1525745393/sunshine-garden/compare/v1.5.0...v1.6.0) (2026-09-26)
+
+
+### Features
+
+* v1.6 学习报告新增薄弱知识点分析（错题知识点聚合 + 家长辅导指引） ([8895527](https://github.com/1525745393/sunshine-garden/commit/8895527c22c3cbe5430924dcebe1c36fe4b068cf))
+
 # [1.5.0](https://github.com/1525745393/sunshine-garden/compare/v1.4.0...v1.5.0) (2026-09-26)
 
 
