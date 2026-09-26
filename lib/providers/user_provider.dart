@@ -25,7 +25,8 @@ class UserProvider extends ChangeNotifier {
   static const int streakDailySeconds = 600; // 10 分钟
   static const int streakBonusScore = 20;
 
-  UserProfile? _profile;
+  UserProfile? _profile; // 当前档案
+  List<UserProfile> _profiles = []; // 全部档案（v1.5 多孩子）
   bool _loaded = false;
 
   /// 今日已用时长（秒），跨日自动重置
@@ -43,6 +44,10 @@ class UserProvider extends ChangeNotifier {
   bool _initFailed = false;
 
   UserProfile? get profile => _profile;
+  /// 全部孩子档案（v1.5）
+  List<UserProfile> get profiles => List.unmodifiable(_profiles);
+  /// 当前档案 id
+  String get currentProfileId => _profile?.id ?? '';
   bool get isLoaded => _loaded;
   bool get initFailed => _initFailed;
   bool get privacyAccepted => _privacyAccepted;
@@ -129,31 +134,36 @@ class UserProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _privacyAccepted = prefs.getBool(_kPrivacyAccepted) ?? false;
 
-      // 跨日重置：今日时长 / 今日积分 / 打卡标记
+      // 加载全部档案（v1.5 多孩子），确定当前档案后再读每日状态
+      _profiles = await DatabaseHelper.instance.getAllUsers();
+      final savedId = prefs.getString(_kUserId);
+      _profile = _profiles.where((p) => p.id == savedId).firstOrNull;
+      // 存档缺失（如已删除）时回退到第一个档案
+      _profile ??= _profiles.isEmpty ? null : _profiles.first;
+      if (_profile != null) {
+        await prefs.setString(_kUserId, _profile!.id);
+      }
+
+      // 跨日重置：今日时长 / 今日积分 / 打卡标记（按档案隔离）
       final now = DateTime.now();
       final todayKey = _dayKey(now);
-      final storedDay = prefs.getString(_kTodayKey) ?? '';
+      final storedDay = prefs.getString(_scoped(_kTodayKey)) ?? '';
       if (storedDay != todayKey) {
-        await prefs.setString(_kTodayKey, todayKey);
-        await prefs.setInt(_kTodaySeconds, 0);
-        await prefs.setInt(_kTodayEarnedScore, 0);
-        await prefs.setBool(_kTodayEnough, false);
+        await prefs.setString(_scoped(_kTodayKey), todayKey);
+        await prefs.setInt(_scoped(_kTodaySeconds), 0);
+        await prefs.setInt(_scoped(_kTodayEarnedScore), 0);
+        await prefs.setBool(_scoped(_kTodayEnough), false);
         _todayUsedSeconds = 0;
         _todayEarnedScore = 0;
         _todayPlayedEnough = false;
       } else {
-        _todayUsedSeconds = prefs.getInt(_kTodaySeconds) ?? 0;
-        _todayEarnedScore = prefs.getInt(_kTodayEarnedScore) ?? 0;
-        _todayPlayedEnough = prefs.getBool(_kTodayEnough) ?? false;
+        _todayUsedSeconds = prefs.getInt(_scoped(_kTodaySeconds)) ?? 0;
+        _todayEarnedScore = prefs.getInt(_scoped(_kTodayEarnedScore)) ?? 0;
+        _todayPlayedEnough = prefs.getBool(_scoped(_kTodayEnough)) ?? false;
       }
       _todayKey = todayKey;
-      _streak7Rewarded = prefs.getBool(_kStreakRewarded) ?? false;
+      _streak7Rewarded = prefs.getBool(_scoped(_kStreakRewarded)) ?? false;
 
-      // 加载用户
-      final userId = prefs.getString(_kUserId);
-      if (userId != null) {
-        _profile = await DatabaseHelper.instance.getUser(userId);
-      }
       if (_profile != null) {
         _checkDailyRollover();
       }
@@ -186,24 +196,72 @@ class UserProvider extends ChangeNotifier {
     _persistProfile();
   }
 
-  /// 创建档案（首次引导）
+  /// 创建档案（首次引导 / 家长新增孩子，v1.5）
   Future<void> createProfile({
     required String nickname,
     required StudyStage stage,
     required String grade,
   }) async {
     final profile = UserProfile(
-      id: 'user_001',
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       nickname: nickname,
       stage: stage,
       grade: grade,
     );
+    _profiles.add(profile);
     _profile = profile;
     _todayKey = _dayKey(DateTime.now());
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kUserId, profile.id);
     await DatabaseHelper.instance.upsertUser(profile);
     notifyListeners();
+  }
+
+  /// 切换当前档案（家长中心）
+  Future<void> switchProfile(String id) async {
+    final target = _profiles.where((p) => p.id == id).firstOrNull;
+    if (target == null) return;
+    _profile = target;
+    // 每日状态重置为当前档案的值
+    _todayKey = _dayKey(DateTime.now());
+    final prefs = await SharedPreferences.getInstance();
+    final todayKey = _dayKey(DateTime.now());
+    final storedDay = prefs.getString(_scoped(_kTodayKey)) ?? '';
+    if (storedDay != todayKey) {
+      await prefs.setString(_scoped(_kTodayKey), todayKey);
+      await prefs.setInt(_scoped(_kTodaySeconds), 0);
+      await prefs.setInt(_scoped(_kTodayEarnedScore), 0);
+      await prefs.setBool(_scoped(_kTodayEnough), false);
+      _todayUsedSeconds = 0;
+      _todayEarnedScore = 0;
+      _todayPlayedEnough = false;
+    } else {
+      _todayUsedSeconds = prefs.getInt(_scoped(_kTodaySeconds)) ?? 0;
+      _todayEarnedScore = prefs.getInt(_scoped(_kTodayEarnedScore)) ?? 0;
+      _todayPlayedEnough = prefs.getBool(_scoped(_kTodayEnough)) ?? false;
+    }
+    _streak7Rewarded = prefs.getBool(_scoped(_kStreakRewarded)) ?? false;
+    await prefs.setString(_kUserId, id);
+    notifyListeners();
+  }
+
+  /// 删除档案（家长中心；至少保留一个档案）
+  Future<void> removeProfile(String id) async {
+    if (_profiles.length <= 1) return;
+    await DatabaseHelper.instance.deleteUserAndData(id);
+    _profiles.removeWhere((p) => p.id == id);
+    if (_profile?.id == id) {
+      _profile = _profiles.first;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kUserId, _profile!.id);
+    }
+    notifyListeners();
+  }
+
+  /// 每日状态 / 打卡 SP key 按档案隔离（v1.5）
+  String _scoped(String key) {
+    final id = _profile?.id ?? '';
+    return id.isEmpty ? key : '$key$id';
   }
 
   /// 家长中心修改设置
@@ -257,7 +315,7 @@ class UserProvider extends ChangeNotifier {
         if (actual > 0) {
           _todayEarnedScore += actual;
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt(_kTodayEarnedScore, _todayEarnedScore);
+          await prefs.setInt(_scoped(_kTodayEarnedScore), _todayEarnedScore);
         }
       } else {
         _todayEarnedScore += actual;
@@ -308,19 +366,19 @@ class UserProvider extends ChangeNotifier {
     final before = _todayUsedSeconds;
     _todayUsedSeconds += seconds;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kTodaySeconds, _todayUsedSeconds);
+    await prefs.setInt(_scoped(_kTodaySeconds), _todayUsedSeconds);
 
     // 连续打卡：今日玩满 10 分钟 → 标记；满 7 天且未发奖 → 发放奖励
     // （番茄钟休息提示由 consumePomodoroBreakNotice 单独消费）
     if (!_todayPlayedEnough &&
         _todayUsedSeconds >= streakDailySeconds) {
       _todayPlayedEnough = true;
-      await prefs.setBool(_kTodayEnough, true);
+      await prefs.setBool(_scoped(_kTodayEnough), true);
       if (!_streak7Rewarded) {
         final days = _profile?.continuousDays ?? 0;
         if (days >= streakTargetDays) {
           _streak7Rewarded = true;
-          await prefs.setBool(_kStreakRewarded, true);
+          await prefs.setBool(_scoped(_kStreakRewarded), true);
           await prefs.setBool(_kBadgePersist, true);
           _rewardMessage ??=
               '🌟 连续 $days 天打卡！+$streakBonusScore 分，解锁「坚持之星」';

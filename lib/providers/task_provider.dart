@@ -32,10 +32,10 @@ class TaskProvider extends ChangeNotifier {
   Future<void> load() async {
     final dayKey = _todayKey();
     _dayKey = dayKey;
-    var list = await DatabaseHelper.instance.getTasksForDay(dayKey);
+    var list = await DatabaseHelper.instance.getTasksForDay(UserProvider.instance.currentProfileId, dayKey);
     if (list.isEmpty) {
       list = defaultTasks();
-      await DatabaseHelper.instance.replaceTasksForDay(dayKey, list);
+      await DatabaseHelper.instance.replaceTasksForDay(UserProvider.instance.currentProfileId, dayKey, list);
     }
     _tasks = list;
     _loaded = true;
@@ -48,7 +48,7 @@ class TaskProvider extends ChangeNotifier {
     if (!task.completed) {
       task.completed = true;
       await user.changeScore(task.score);
-      await DatabaseHelper.instance.insertRecord(StudyRecord(
+      await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
         id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
         dayKey: _dayKey,
         createdAt: DateTime.now(),
@@ -61,7 +61,7 @@ class TaskProvider extends ChangeNotifier {
       task.completed = false;
       await user.changeScore(-task.score);
     }
-    await DatabaseHelper.instance.updateTask(task);
+    await DatabaseHelper.instance.updateTask(UserProvider.instance.currentProfileId, task);
     notifyListeners();
   }
 
@@ -70,7 +70,7 @@ class TaskProvider extends ChangeNotifier {
     final dayKey = _todayKey();
     _dayKey = dayKey;
     _tasks = defaultTasks();
-    await DatabaseHelper.instance.replaceTasksForDay(dayKey, _tasks);
+    await DatabaseHelper.instance.replaceTasksForDay(UserProvider.instance.currentProfileId, dayKey, _tasks);
     notifyListeners();
   }
 

@@ -139,7 +139,7 @@ class _MainShellState extends State<MainShell> {
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             Text(
-              '${profile.stage.label} · ${profile.grade}',
+              '${profile.nickname} · ${profile.stage.label} · ${profile.grade}',
               style: const TextStyle(fontSize: 11, color: Colors.white70),
             ),
           ],

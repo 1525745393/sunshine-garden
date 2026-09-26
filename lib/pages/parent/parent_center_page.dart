@@ -7,11 +7,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../db/database_helper.dart';
 import '../../models/user_profile.dart';
+import '../../providers/garden_provider.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/reward_provider.dart';
+import '../../providers/task_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/update_checker.dart';
 import '../../theme/app_theme.dart';
+
+/// 各学段可选年级（与首次引导一致）
+const _addGrades = {
+  StudyStage.kindergarten: ['小班', '中班', '大班'],
+  StudyStage.primary: ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级'],
+  StudyStage.middle: ['七年级', '八年级', '九年级'],
+};
 
 /// 家长中心：算术验证 → 报告 / 档案 / 审批 / 时长 / 偏好 / 一键清除
 class ParentCenterPage extends StatefulWidget {
@@ -34,8 +43,8 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
 
   Future<void> _loadReportData() async {
     final mistakes =
-        await DatabaseHelper.instance.getMistakes(resolved: false);
-    final records = await DatabaseHelper.instance.getRecords(limit: 100);
+        await DatabaseHelper.instance.getMistakes(UserProvider.instance.currentProfileId, resolved: false);
+    final records = await DatabaseHelper.instance.getRecords(UserProvider.instance.currentProfileId, limit: 100);
     if (!mounted) return;
     final total = records.length;
     final quiz = records.where((r) => r.type == 'quiz').length;
@@ -178,6 +187,17 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
             title: '孩子档案',
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.group,
+                      color: AppColors.primary),
+                  title: const Text('切换 / 管理孩子'),
+                  subtitle: Text(
+                    '${profile.nickname} · ${profile.stage.label}（共 ${user.profiles.length} 个档案）',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _showProfilesDialog(context, user),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.child_care,
                       color: AppColors.primary),
@@ -795,6 +815,234 @@ class _ParentCenterPageState extends State<ParentCenterPage> {
         ),
       ),
     );
+  }
+
+  /// 孩子档案管理：切换 / 添加 / 删除（v1.5 多孩子）
+  Future<void> _showProfilesDialog(
+      BuildContext context, UserProvider user) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('孩子档案'),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: user.profiles.map((p) {
+                      final isCurrent = p.id == user.currentProfileId;
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              isCurrent ? AppColors.primary : AppColors.subtitle,
+                          child: Text(
+                            p.nickname.isEmpty ? '娃' : p.nickname[0],
+                            style: TextStyle(
+                              color: isCurrent ? Colors.white : AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(p.nickname),
+                        subtitle: Text(
+                          '${p.stage.label} · ${p.grade} · ${p.totalScore} 分',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isCurrent)
+                              const Icon(Icons.check_circle,
+                                  color: AppColors.success)
+                            else
+                              IconButton(
+                                icon: const Icon(Icons.check_circle_outline,
+                                    color: AppColors.textSecondary),
+                                tooltip: '切换到该档案',
+                                onPressed: () async {
+                                  await user.switchProfile(p.id);
+                                  await _reloadAfterSwitch();
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content: Text('已切换到 ${p.nickname}')),
+                                    );
+                                  }
+                                },
+                              ),
+                            if (user.profiles.length > 1)
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: AppColors.warning),
+                                tooltip: '删除档案',
+                                onPressed: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: ctx,
+                                    builder: (c) => AlertDialog(
+                                      title: Text('删除 ${p.nickname}？'),
+                                      content: const Text(
+                                          '将清空该孩子的学习记录、积分与进度，且不可恢复。'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(c, false),
+                                          child: const Text('取消'),
+                                        ),
+                                        FilledButton(
+                                          style: FilledButton.styleFrom(
+                                              backgroundColor:
+                                                  AppColors.warning),
+                                          onPressed: () =>
+                                              Navigator.pop(c, true),
+                                          child: const Text('删除'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    await user.removeProfile(p.id);
+                                    if (ctx.mounted) {
+                                      setDialogState(() {});
+                                    }
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 4),
+                ListTile(
+                  leading: const Icon(Icons.person_add_alt,
+                      color: AppColors.primary),
+                  title: const Text('添加孩子'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _showAddProfileDialog(context, user);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 添加孩子表单：昵称 + 学段 + 年级
+  Future<void> _showAddProfileDialog(
+      BuildContext context, UserProvider user) async {
+    final nicknameCtrl = TextEditingController();
+    var stage = StudyStage.kindergarten;
+    String? grade;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('添加孩子'),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: nicknameCtrl,
+                  maxLength: 8,
+                  decoration: const InputDecoration(
+                    labelText: '昵称',
+                    hintText: '如：小明',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text('学段', style: TextStyle(fontSize: 13)),
+                const SizedBox(height: 6),
+                SegmentedButton<StudyStage>(
+                  segments: StudyStage.values
+                      .map((s) => ButtonSegment(
+                          value: s, label: Text(s.label)))
+                      .toList(),
+                  selected: {stage},
+                  onSelectionChanged: (v) =>
+                      setDialogState(() => stage = v.first),
+                ),
+                const SizedBox(height: 8),
+                if (grade == null)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _addGrades[stage]!.map((g) {
+                      return ChoiceChip(
+                        label: Text(g),
+                        selected: false,
+                        onSelected: (_) =>
+                            setDialogState(() => grade = g),
+                      );
+                    }).toList(),
+                  )
+                else
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: InputChip(
+                      label: Text('年级：$grade'),
+                      onDeleted: () => setDialogState(() => grade = null),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () async {
+                final name = nicknameCtrl.text.trim();
+                if (name.isEmpty || grade == null) return;
+                await user.createProfile(
+                  nickname: name,
+                  stage: stage,
+                  grade: grade!,
+                );
+                await _reloadAfterSwitch();
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('已添加孩子 $name，开始学习吧！')),
+                  );
+                }
+              },
+              child: const Text('添加'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 切换档案后重载各业务数据（关卡/任务/花园/商城/错题/勋章/记录）
+  Future<void> _reloadAfterSwitch() async {
+    await Future.wait([
+      QuizProvider.instance.loadLevels(),
+      QuizProvider.instance.loadMistakes(),
+      QuizProvider.instance.loadBadges(),
+      TaskProvider.instance.load(),
+      GardenProvider.instance.load(),
+      RewardProvider.instance.load(),
+    ]);
   }
 
   /// 允许学习时间段配置：开始/结束小时（0-24，跨午夜支持）

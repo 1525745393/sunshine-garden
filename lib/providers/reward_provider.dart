@@ -28,7 +28,7 @@ class RewardProvider extends ChangeNotifier {
 
   /// 加载商品（mock + 数据库兑换状态合并 + 家长自定义奖励）与兑换记录
   Future<void> load() async {
-    final savedItems = await DatabaseHelper.instance.getRewards();
+    final savedItems = await DatabaseHelper.instance.getRewards(UserProvider.instance.currentProfileId);
     final savedById = {for (final i in savedItems) i.id: i};
     _items = defaultRewards.map((i) {
       final s = savedById[i.id];
@@ -41,7 +41,7 @@ class RewardProvider extends ChangeNotifier {
         _items.add(s);
       }
     }
-    _redemptions = await DatabaseHelper.instance.getRedemptions();
+    _redemptions = await DatabaseHelper.instance.getRedemptions(UserProvider.instance.currentProfileId);
     _loaded = true;
     notifyListeners();
   }
@@ -55,7 +55,7 @@ class RewardProvider extends ChangeNotifier {
     }
     await user.changeScore(-item.price);
     item.redeemed = true;
-    await DatabaseHelper.instance.upsertReward(item);
+    await DatabaseHelper.instance.upsertReward(UserProvider.instance.currentProfileId, item);
 
     // v1.3：大奖励需家长审批（pending），小/中奖励直接生效
     final isBig = item.tier == 'big';
@@ -69,10 +69,10 @@ class RewardProvider extends ChangeNotifier {
       status: status,
       tier: item.tier,
     );
-    await DatabaseHelper.instance.insertRedemption(record);
+    await DatabaseHelper.instance.insertRedemption(UserProvider.instance.currentProfileId, record);
     _redemptions.insert(0, record);
 
-    await DatabaseHelper.instance.insertRecord(StudyRecord(
+    await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       dayKey: _dayKey(),
       createdAt: DateTime.now(),
@@ -94,14 +94,14 @@ class RewardProvider extends ChangeNotifier {
   /// 家长批准奖励：记录状态置为 approved
   Future<void> approveRedemption(RedemptionRecord record) async {
     record.status = 'approved';
-    await DatabaseHelper.instance.updateRedemptionStatus(record.id, 'approved');
+    await DatabaseHelper.instance.updateRedemptionStatus(UserProvider.instance.currentProfileId, record.id, 'approved');
     notifyListeners();
   }
 
   /// 家长拒绝奖励：退回积分，商品可重新兑换
   Future<void> rejectRedemption(RedemptionRecord record) async {
     record.status = 'rejected';
-    await DatabaseHelper.instance.updateRedemptionStatus(record.id, 'rejected');
+    await DatabaseHelper.instance.updateRedemptionStatus(UserProvider.instance.currentProfileId, record.id, 'rejected');
     // 退回积分（同一学习记录追加一条正向记录，便于追溯）
     await UserProvider.instance.changeScore(record.cost);
     RewardItem? item;
@@ -113,9 +113,9 @@ class RewardProvider extends ChangeNotifier {
     }
     if (item != null) {
       item.redeemed = false;
-      await DatabaseHelper.instance.upsertReward(item);
+      await DatabaseHelper.instance.upsertReward(UserProvider.instance.currentProfileId, item);
     }
-    await DatabaseHelper.instance.insertRecord(StudyRecord(
+    await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       dayKey: _dayKey(),
       createdAt: DateTime.now(),
@@ -142,7 +142,7 @@ class RewardProvider extends ChangeNotifier {
       tier: tier,
       custom: true,
     );
-    await DatabaseHelper.instance.upsertReward(item);
+    await DatabaseHelper.instance.upsertReward(UserProvider.instance.currentProfileId, item);
     _items.add(item);
     notifyListeners();
   }

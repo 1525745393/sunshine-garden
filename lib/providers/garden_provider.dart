@@ -25,7 +25,7 @@ class GardenProvider extends ChangeNotifier {
 
   /// 加载地块：mock 定义 + 数据库解锁状态合并
   Future<void> load() async {
-    final saved = await DatabaseHelper.instance.getGardenPlots();
+    final saved = await DatabaseHelper.instance.getGardenPlots(UserProvider.instance.currentProfileId);
     final savedById = {for (final p in saved) p.id: p};
     _plots = defaultPlots.map((p) {
       final s = savedById[p.id];
@@ -35,7 +35,7 @@ class GardenProvider extends ChangeNotifier {
     // 首块默认解锁并落库（保证新装用户也有花园可看）
     if (_plots.isNotEmpty && !_plots.first.unlocked) {
       _plots.first.unlocked = true;
-      await DatabaseHelper.instance.upsertGardenPlot(_plots.first);
+      await DatabaseHelper.instance.upsertGardenPlot(UserProvider.instance.currentProfileId, _plots.first);
     }
     _loaded = true;
     notifyListeners();
@@ -50,8 +50,8 @@ class GardenProvider extends ChangeNotifier {
     }
     await user.changeScore(-plot.price);
     plot.unlocked = true;
-    await DatabaseHelper.instance.upsertGardenPlot(plot);
-    await DatabaseHelper.instance.insertRecord(StudyRecord(
+    await DatabaseHelper.instance.upsertGardenPlot(UserProvider.instance.currentProfileId, plot);
+    await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       dayKey: _dayKey(),
       createdAt: DateTime.now(),

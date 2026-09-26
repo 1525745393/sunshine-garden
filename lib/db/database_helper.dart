@@ -15,7 +15,7 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._();
 
   static const _dbName = 'sunshine_garden.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5; // v1.5 多孩子档案：业务表按 user_id 隔离
   Database? _db;
 
   Future<Database> get database async {
@@ -58,6 +58,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE levels (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             stage TEXT,
             subject TEXT,
             unit TEXT,
@@ -70,6 +71,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE tasks (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             day_key TEXT,
             title TEXT,
             icon TEXT,
@@ -81,6 +83,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE mistakes (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             question_text TEXT,
             user_answer TEXT,
             correct_answer TEXT,
@@ -94,6 +97,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE records (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             day_key TEXT,
             created_at TEXT,
             type TEXT,
@@ -106,6 +110,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE rewards (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             name TEXT,
             icon TEXT,
             price INTEGER,
@@ -118,6 +123,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE redemptions (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             reward_name TEXT,
             reward_icon TEXT,
             cost INTEGER,
@@ -130,6 +136,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE badges (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             name TEXT,
             icon TEXT,
             condition TEXT,
@@ -140,6 +147,7 @@ class DatabaseHelper {
         await db.execute('''
           CREATE TABLE garden_plots (
             id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT '',
             name TEXT,
             icon TEXT,
             description TEXT,
@@ -189,6 +197,16 @@ class DatabaseHelper {
           await db.execute(
               'ALTER TABLE users ADD COLUMN allowed_end_hour INTEGER DEFAULT 24');
         }
+        if (oldVersion < 5) {
+          // v1.5 多孩子档案：全部业务表按 user_id 隔离（旧数据归入默认档案）
+          for (final t in const [
+            'levels', 'tasks', 'mistakes', 'records',
+            'rewards', 'redemptions', 'badges', 'garden_plots',
+          ]) {
+            await db.execute(
+                "ALTER TABLE $t ADD COLUMN user_id TEXT DEFAULT ''");
+          }
+        }
       },
     );
   }
@@ -210,81 +228,133 @@ class DatabaseHelper {
     return UserProfile.fromMap(rows.first);
   }
 
+  /// 全部档案（v1.5 多孩子）
+  Future<List<UserProfile>> getAllUsers() async {
+    final db = await database;
+    final rows = await db.query('users', orderBy: 'rowid');
+    return rows.map(UserProfile.fromMap).toList();
+  }
+
+  /// 删除档案及其全部学习数据（v1.5）
+  Future<void> deleteUserAndData(String userId) async {
+    final db = await database;
+    await db.delete('users', where: 'id = ?', whereArgs: [userId]);
+    for (final t in const [
+      'levels', 'tasks', 'mistakes', 'records',
+      'rewards', 'redemptions', 'badges', 'garden_plots',
+    ]) {
+      await db.delete(t, where: 'user_id = ?', whereArgs: [userId]);
+    }
+  }
+
+  // ---------- 多档案 id 前缀（业务行 id 存为 "user:orig"，避免主键冲突） ----------
+  static String pid(String userId, String id) => '$userId:$id';
+  static String unpid(String userId, String id) =>
+      id.startsWith('$userId:') ? id.substring(userId.length + 1) : id;
+
   // ---------- 关卡 ----------
-  Future<void> upsertLevel(Level level) async {
+  Future<void> upsertLevel(String userId, Level level) async {
     final db = await database;
     await db.insert(
       'levels',
-      level.toMap(),
+      {...level.toMap(), 'id': pid(userId, level.id), 'user_id': userId},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<Map<String, Level>> getLevels() async {
+  Future<Map<String, Level>> getLevels(String userId) async {
     final db = await database;
-    final rows = await db.query('levels');
-    return {for (final r in rows) r['id'] as String: Level.fromMap(r)};
+    final rows = await db.query('levels',
+        where: 'user_id = ?', whereArgs: [userId]);
+    return {
+      for (final r in rows)
+        unpid(userId, r['id'] as String): Level.fromMap({...r, 'id': unpid(userId, r['id'] as String)}),
+    };
   }
 
   // ---------- 今日任务 ----------
-  Future<void> replaceTasksForDay(String dayKey, List<Task> tasks) async {
+  Future<void> replaceTasksForDay(
+      String userId, String dayKey, List<Task> tasks) async {
     final db = await database;
-    await db.delete('tasks', where: 'day_key = ?', whereArgs: [dayKey]);
+    await db.delete('tasks',
+        where: 'user_id = ? AND day_key = ?', whereArgs: [userId, dayKey]);
     final batch = db.batch();
     for (final t in tasks) {
-      batch.insert('tasks', {...t.toMap(), 'day_key': dayKey});
+      batch.insert('tasks', {
+        ...t.toMap(),
+        'id': pid(userId, t.id),
+        'day_key': dayKey,
+        'user_id': userId,
+      });
     }
     await batch.commit(noResult: true);
   }
 
-  Future<List<Task>> getTasksForDay(String dayKey) async {
+  Future<List<Task>> getTasksForDay(String userId, String dayKey) async {
     final db = await database;
     final rows = await db.query('tasks',
-        where: 'day_key = ?', whereArgs: [dayKey], orderBy: 'rowid');
-    return rows.map(Task.fromMap).toList();
+        where: 'user_id = ? AND day_key = ?',
+        whereArgs: [userId, dayKey],
+        orderBy: 'rowid');
+    return rows.map((r) => Task.fromMap(
+        {...r, 'id': unpid(userId, r['id'] as String)})).toList();
   }
 
-  Future<void> updateTask(Task task) async {
+  Future<void> updateTask(String userId, Task task) async {
     final db = await database;
-    await db.update('tasks', task.toMap(), where: 'id = ?', whereArgs: [task.id]);
+    await db.update('tasks', task.toMap(),
+        where: 'user_id = ? AND id = ?',
+        whereArgs: [userId, pid(userId, task.id)]);
   }
 
   // ---------- 错题 ----------
-  Future<void> upsertMistake(Mistake mistake) async {
+  Future<void> upsertMistake(String userId, Mistake mistake) async {
     final db = await database;
     await db.insert(
       'mistakes',
-      mistake.toMap(),
+      {...mistake.toMap(), 'id': pid(userId, mistake.id), 'user_id': userId},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<List<Mistake>> getMistakes({bool? resolved}) async {
+  Future<List<Mistake>> getMistakes(String userId, {bool? resolved}) async {
     final db = await database;
     final rows = await db.query(
       'mistakes',
-      where: resolved == null ? null : 'resolved = ?',
-      whereArgs: resolved == null ? null : [resolved ? 1 : 0],
+      where: resolved == null
+          ? 'user_id = ?'
+          : 'user_id = ? AND resolved = ?',
+      whereArgs: resolved == null
+          ? [userId]
+          : [userId, resolved ? 1 : 0],
       orderBy: 'added_at DESC',
     );
-    return rows.map(Mistake.fromMap).toList();
+    return rows.map((r) => Mistake.fromMap(
+        {...r, 'id': unpid(userId, r['id'] as String)})).toList();
   }
 
-  Future<void> deleteMistake(String id) async {
+  Future<void> deleteMistake(String userId, String id) async {
     final db = await database;
-    await db.delete('mistakes', where: 'id = ?', whereArgs: [id]);
+    await db.delete('mistakes',
+        where: 'user_id = ? AND id = ?',
+        whereArgs: [userId, pid(userId, id)]);
   }
 
   // ---------- 学习记录 ----------
-  Future<void> insertRecord(StudyRecord record) async {
+  Future<void> insertRecord(String userId, StudyRecord record) async {
     final db = await database;
-    await db.insert('records', record.toMap());
+    await db.insert(
+      'records',
+      {...record.toMap(), 'user_id': userId},
+    );
   }
 
-  Future<List<StudyRecord>> getRecords({int? limit}) async {
+  Future<List<StudyRecord>> getRecords(String userId, {int? limit}) async {
     final db = await database;
     final rows = await db.query(
       'records',
+      where: 'user_id = ?',
+      whereArgs: [userId],
       orderBy: 'created_at DESC',
       limit: limit,
     );
@@ -292,71 +362,81 @@ class DatabaseHelper {
   }
 
   // ---------- 花园地块 ----------
-  Future<void> upsertGardenPlot(GardenPlot plot) async {
+  Future<void> upsertGardenPlot(String userId, GardenPlot plot) async {
     final db = await database;
     await db.insert(
       'garden_plots',
-      plot.toMap(),
+      {...plot.toMap(), 'id': pid(userId, plot.id), 'user_id': userId},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<List<GardenPlot>> getGardenPlots() async {
+  Future<List<GardenPlot>> getGardenPlots(String userId) async {
     final db = await database;
-    final rows = await db.query('garden_plots', orderBy: 'rowid');
-    return rows.map(GardenPlot.fromMap).toList();
+    final rows = await db.query('garden_plots',
+        where: 'user_id = ?', whereArgs: [userId], orderBy: 'rowid');
+    return rows.map((r) => GardenPlot.fromMap(
+        {...r, 'id': unpid(userId, r['id'] as String)})).toList();
   }
 
-  Future<void> setGardenPlotUnlocked(String id, {required bool unlocked}) async {
+  Future<void> setGardenPlotUnlocked(String userId, String id,
+      {required bool unlocked}) async {
     final db = await database;
     await db.update(
       'garden_plots',
       {'unlocked': unlocked ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'user_id = ? AND id = ?',
+      whereArgs: [userId, pid(userId, id)],
     );
   }
 
   // ---------- 商城 ----------
-  Future<void> upsertReward(RewardItem item) async {
+  Future<void> upsertReward(String userId, RewardItem item) async {
     final db = await database;
     await db.insert(
       'rewards',
-      item.toMap(),
+      {...item.toMap(), 'id': pid(userId, item.id), 'user_id': userId},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<List<RewardItem>> getRewards() async {
+  Future<List<RewardItem>> getRewards(String userId) async {
     final db = await database;
-    final rows = await db.query('rewards', orderBy: 'price');
-    return rows.map(RewardItem.fromMap).toList();
+    final rows = await db.query('rewards',
+        where: 'user_id = ?', whereArgs: [userId], orderBy: 'price');
+    return rows.map((r) => RewardItem.fromMap(
+        {...r, 'id': unpid(userId, r['id'] as String)})).toList();
   }
 
-  Future<void> insertRedemption(RedemptionRecord record) async {
+  Future<void> insertRedemption(String userId, RedemptionRecord record) async {
     final db = await database;
-    await db.insert('redemptions', record.toMap());
+    await db.insert(
+      'redemptions',
+      {...record.toMap(), 'user_id': userId},
+    );
   }
 
-  Future<List<RedemptionRecord>> getRedemptions() async {
+  Future<List<RedemptionRecord>> getRedemptions(String userId) async {
     final db = await database;
-    final rows = await db.query('redemptions', orderBy: 'redeemed_at DESC');
+    final rows = await db.query('redemptions',
+        where: 'user_id = ?', whereArgs: [userId], orderBy: 'redeemed_at DESC');
     return rows.map(RedemptionRecord.fromMap).toList();
   }
 
   /// 更新兑换记录审批状态（v1.3 奖励审批：pending → approved / rejected）
-  Future<void> updateRedemptionStatus(String id, String status) async {
+  Future<void> updateRedemptionStatus(String userId, String id, String status) async {
     final db = await database;
     await db.update(
       'redemptions',
       {'status': status},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'user_id = ? AND id = ?',
+      whereArgs: [userId, pid(userId, id)],
     );
   }
 
   // ---------- 勋章 ----------
   Future<void> upsertBadge({
+    required String userId,
     required String id,
     required String name,
     required String icon,
@@ -367,7 +447,8 @@ class DatabaseHelper {
     await db.insert(
       'badges',
       {
-        'id': id,
+        'id': pid(userId, id),
+        'user_id': userId,
         'name': name,
         'icon': icon,
         'condition': condition,
@@ -377,22 +458,24 @@ class DatabaseHelper {
     );
   }
 
-  Future<Map<String, bool>> getBadgeStatus() async {
+  Future<Map<String, bool>> getBadgeStatus(String userId) async {
     final db = await database;
-    final rows = await db.query('badges');
+    final rows = await db.query('badges',
+        where: 'user_id = ?', whereArgs: [userId]);
     return {
       for (final r in rows)
-        r['id'] as String: (r['unlocked'] as num?)?.toInt() == 1,
+        unpid(userId, r['id'] as String): (r['unlocked'] as num?)?.toInt() == 1,
     };
   }
 
-  Future<void> setBadgeUnlocked(String id, {required bool unlocked}) async {
+  Future<void> setBadgeUnlocked(String userId, String id,
+      {required bool unlocked}) async {
     final db = await database;
     await db.update(
       'badges',
       {'unlocked': unlocked ? 1 : 0},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'user_id = ? AND id = ?',
+      whereArgs: [userId, pid(userId, id)],
     );
   }
 

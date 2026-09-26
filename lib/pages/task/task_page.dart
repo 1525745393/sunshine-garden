@@ -32,7 +32,7 @@ class _TaskPageState extends State<TaskPage> {
   /// 统计今日正向积分（records 表 day_key 分组）
   Future<void> _loadTodayEarned() async {
     final today = _dayKey(DateTime.now());
-    final records = await DatabaseHelper.instance.getRecords();
+    final records = await DatabaseHelper.instance.getRecords(UserProvider.instance.currentProfileId, );
     final sum = records
         .where((r) => r.dayKey == today && r.scoreChange > 0)
         .fold(0, (acc, r) => acc + r.scoreChange);

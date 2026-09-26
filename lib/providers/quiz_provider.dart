@@ -66,7 +66,7 @@ class QuizProvider extends ChangeNotifier {
   Future<void> loadLevels() async {
     final stage = UserProvider.instance.profile?.stage.name ?? 'primary';
     final defs = levelsForStage(stage);
-    final saved = await DatabaseHelper.instance.getLevels();
+    final saved = await DatabaseHelper.instance.getLevels(UserProvider.instance.currentProfileId);
     _levels = defs.map((level) {
       final s = saved[level.id];
       if (s != null) {
@@ -78,7 +78,7 @@ class QuizProvider extends ChangeNotifier {
     // 首关默认解锁
     if (_levels.isNotEmpty && !_levels.first.unlocked) {
       _levels.first.unlocked = true;
-      await DatabaseHelper.instance.upsertLevel(_levels.first);
+      await DatabaseHelper.instance.upsertLevel(UserProvider.instance.currentProfileId, _levels.first);
     }
     _levelsLoaded = true;
     notifyListeners();
@@ -131,7 +131,7 @@ class QuizProvider extends ChangeNotifier {
         addedAt: DateTime.now(),
         nextReviewAt: DateTime.now().add(const Duration(days: 1)),
       );
-      await DatabaseHelper.instance.upsertMistake(mistake);
+      await DatabaseHelper.instance.upsertMistake(UserProvider.instance.currentProfileId, mistake);
     }
 
     if (gained > 0) {
@@ -179,12 +179,12 @@ class QuizProvider extends ChangeNotifier {
     final idx = _levels.indexWhere((l) => l.id == level.id);
     if (idx >= 0 && idx < _levels.length - 1) {
       _levels[idx + 1].unlocked = true;
-      await DatabaseHelper.instance.upsertLevel(_levels[idx + 1]);
+      await DatabaseHelper.instance.upsertLevel(UserProvider.instance.currentProfileId, _levels[idx + 1]);
     }
-    await DatabaseHelper.instance.upsertLevel(level);
+    await DatabaseHelper.instance.upsertLevel(UserProvider.instance.currentProfileId, level);
 
     // 学习记录
-    await DatabaseHelper.instance.insertRecord(StudyRecord(
+    await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       dayKey: _dayKey(),
       createdAt: DateTime.now(),
@@ -221,7 +221,7 @@ class QuizProvider extends ChangeNotifier {
 
   // ---------- 错题本 ----------
   Future<void> loadMistakes() async {
-    _mistakes = await DatabaseHelper.instance.getMistakes(resolved: false);
+    _mistakes = await DatabaseHelper.instance.getMistakes(UserProvider.instance.currentProfileId, resolved: false);
     _mistakesLoaded = true;
     notifyListeners();
   }
@@ -242,16 +242,16 @@ class QuizProvider extends ChangeNotifier {
   Future<void> postponeMistake(Mistake mistake) async {
     mistake.nextReviewAt =
         DateTime.now().add(const Duration(days: 1));
-    await DatabaseHelper.instance.upsertMistake(mistake);
+    await DatabaseHelper.instance.upsertMistake(UserProvider.instance.currentProfileId, mistake);
     notifyListeners();
   }
 
   /// 错题重做正确：+2 积分、移出错题本、写学习记录
   Future<void> resolveMistake(Mistake mistake) async {
-    await DatabaseHelper.instance.deleteMistake(mistake.id);
+    await DatabaseHelper.instance.deleteMistake(UserProvider.instance.currentProfileId, mistake.id);
     _mistakes.removeWhere((m) => m.id == mistake.id);
     await UserProvider.instance.changeScore(2);
-    await DatabaseHelper.instance.insertRecord(StudyRecord(
+    await DatabaseHelper.instance.insertRecord(UserProvider.instance.currentProfileId, StudyRecord(
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       dayKey: _dayKey(),
       createdAt: DateTime.now(),
@@ -268,6 +268,7 @@ class QuizProvider extends ChangeNotifier {
   Future<void> loadBadges() async {
     for (final b in defaultBadges) {
       await DatabaseHelper.instance.upsertBadge(
+        userId: UserProvider.instance.currentProfileId,
         id: b.id,
         name: b.name,
         icon: b.icon,
@@ -275,7 +276,7 @@ class QuizProvider extends ChangeNotifier {
         unlocked: b.unlocked,
       );
     }
-    final status = await DatabaseHelper.instance.getBadgeStatus();
+    final status = await DatabaseHelper.instance.getBadgeStatus(UserProvider.instance.currentProfileId);
     _badges = defaultBadges
         .map((b) => Badge(
               id: b.id,
@@ -297,7 +298,7 @@ class QuizProvider extends ChangeNotifier {
 
     final levelById = {for (final l in _levels) l.id: l};
     final records =
-        await DatabaseHelper.instance.getRecords();
+        await DatabaseHelper.instance.getRecords(UserProvider.instance.currentProfileId, );
     final quizCount =
         records.where((r) => r.type == 'quiz').length;
 
@@ -307,7 +308,8 @@ class QuizProvider extends ChangeNotifier {
       if (cond && !badge.unlocked) {
         badge.unlocked = true;
         await DatabaseHelper.instance
-            .setBadgeUnlocked(id, unlocked: true);
+            .setBadgeUnlocked(
+              UserProvider.instance.currentProfileId, id, unlocked: true);
       }
     }
 

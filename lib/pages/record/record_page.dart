@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../db/database_helper.dart';
 import '../../models/study_record.dart';
+import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 
 /// 学习记录：时间线样式，按日期倒序
@@ -23,7 +24,7 @@ class _RecordPageState extends State<RecordPage> {
   }
 
   Future<void> _load() async {
-    final records = await DatabaseHelper.instance.getRecords(limit: 200);
+    final records = await DatabaseHelper.instance.getRecords(UserProvider.instance.currentProfileId, limit: 200);
     if (!mounted) return;
     setState(() {
       _records = records;
